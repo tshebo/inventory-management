@@ -58,7 +58,7 @@ export default function SignUpPage() {
       await setDoc(doc(db, "users", user.uid), {
         email: data.email,
         name: data.name,
-        role: "customer",
+        role: "vendor",
       });
 
       console.log("User signed up:", user);
@@ -165,9 +165,7 @@ export default function SignUpPage() {
               </Alert>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && (
-                <Spinner/>
-              )}
+              {isLoading && <Spinner />}
               Sign Up
             </Button>
           </form>
