@@ -57,7 +57,7 @@ export default function RootLayout({
       // className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <div className="flex h-screen bg-gray-100">
-          {/* Sidebar */}
+          {/* Sidebar
           <aside
             className={`bg-white w-64 min-h-screen p-4 ${
               isSidebarOpen ? "block" : "hidden"
@@ -77,7 +77,7 @@ export default function RootLayout({
                 </Link>
               ))}
             </nav>
-          </aside>
+          </aside> */}
 
           {/* Main Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
