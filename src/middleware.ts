@@ -18,6 +18,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
 
+  //not assigned a role then go to the waiting room
+  if (roleCookie === "user") {
+    return NextResponse.redirect(new URL("/waiting-room", req.url));
+  }
+
   return NextResponse.next();
 }
 

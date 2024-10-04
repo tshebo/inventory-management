@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Spinner from "./Spinner";
-
+import { useAuth } from "@/hooks/auth";
 type FormInputs = {
   name: string;
   email: string;
@@ -33,6 +33,7 @@ type FormInputs = {
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -58,7 +59,7 @@ export default function SignUpPage() {
       await setDoc(doc(db, "users", user.uid), {
         email: data.email,
         name: data.name,
-        role: "vendor",
+        role: "user",
       });
 
       console.log("User signed up:", user);

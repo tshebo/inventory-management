@@ -1,183 +1,318 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
-import { collection, addDoc, Timestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase' // Ensure this path is correct
-import toast, { Toaster } from "react-hot-toast";
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-// import { useToast } from "@/components/ui/use-toast"  
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import { format, isAfter } from "date-fns";
 
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  date: z.date({
-    required_error: "A date is required.",
-  }),
-  location: z.string().min(2, {
-    message: "Location must be at least 2 characters.",
-  }),
-})
+interface EventSchedule {
+  startTime: string;
+  endTime: string;
+}
 
-type FormValues = z.infer<typeof formSchema>
+interface Event {
+  name: string;
+  description: string;
+  date: string;
+  schedule: EventSchedule;
+  location: string;
+  isMultiDay?: boolean;
+  endDate?: string;
+}
+
+interface ValidationErrors {
+  name?: string;
+  description?: string;
+  date?: string;
+  endDate?: string;
+  schedule?: {
+    startTime?: string;
+    endTime?: string;
+  };
+  location?: string;
+}
 
 export default function EventForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
- 
-  
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      location: "",
-    },
-  })
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const [event, setEvent] = useState<Event>({
+    name: "",
+    description: "",
+    date: "",
+    schedule: { startTime: "", endTime: "" },
+    location: "",
+  });
+  const [errors, setErrors] = useState<ValidationErrors>({});
 
-  const onSubmit = async (data: FormValues) => {
-    setIsSubmitting(true)
-    try {
-      const eventsRef = collection(db, 'events')
-      const eventData = {
-        ...data,
-        date: Timestamp.fromDate(data.date),
-        createdAt: Timestamp.now(),
-      }
-      
-      await addDoc(eventsRef, eventData)
-      
-     
+  const validateForm = (): boolean => {
+    const newErrors: ValidationErrors = {};
 
-      toast.success('Event created successfully')
-      
-      form.reset() // Reset form after successful submission
-    } catch (error) {
-      console.error('Error adding event:', error)
-   
-
-      toast.error('There was a problem creating your event. Please try again.')
-    } finally {
-      setIsSubmitting(false)
+    if (!event.name.trim()) {
+      newErrors.name = "Event name is required";
     }
-  }
+    if (!event.description.trim()) {
+      newErrors.description = "Description is required";
+    }
+    if (!event.date) {
+      newErrors.date = "Start date is required";
+    }
+    if (event.isMultiDay && event.date && event.endDate) {
+      if (isAfter(new Date(event.date), new Date(event.endDate))) {
+        newErrors.endDate = "End date must be after start date";
+      }
+    }
+    if (!event.schedule.startTime) {
+      newErrors.schedule = { ...newErrors.schedule, startTime: "Start time is required" };
+    }
+    if (!event.schedule.endTime) {
+      newErrors.schedule = { ...newErrors.schedule, endTime: "End time is required" };
+    }
+    if (event.schedule.startTime && event.schedule.endTime) {
+      if (event.schedule.startTime >= event.schedule.endTime) {
+        newErrors.schedule = {
+          ...newErrors.schedule,
+          endTime: "End time must be after start time",
+        };
+      }
+    }
+    if (!event.location.trim()) {
+      newErrors.location = "Location is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setEvent((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
+
+  const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEvent((prev) => ({
+      ...prev,
+      schedule: { ...prev.schedule, [name]: value },
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      schedule: { ...prev.schedule, [name]: undefined },
+    }));
+  };
+
+  const handleCheckboxChange = (checked: boolean) => {
+    setEvent((prev) => ({ 
+      ...prev, 
+      isMultiDay: checked,
+      endDate: checked ? prev.endDate : prev.date // Set endDate to date if not multiday
+    }));
+  };
+
+  const handleDateChange = (
+    date: Date | undefined,
+    dateType: "date" | "endDate"
+  ) => {
+    if (date) {
+      const formattedDate = format(date, "yyyy-MM-dd");
+      setEvent((prev) => ({ 
+        ...prev, 
+        [dateType]: formattedDate,
+        // If changing start date and not multiday, update end date too
+        ...(dateType === 'date' && !prev.isMultiDay ? { endDate: formattedDate } : {})
+      }));
+      setErrors((prev) => ({ ...prev, [dateType]: undefined }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validateForm()) {
+      setIsLoading(true);
+      try {
+        const eventData = {
+          ...event,
+          createdAt: new Date().toISOString(),
+          status: "active",
+        };
+
+        await addDoc(collection(db, "events"), eventData);
+        toast.success("Event created successfully!");
+        router.push("/admin/events");
+      } catch (error) {
+        console.error("Error creating event:", error);
+        toast.error("Failed to create event. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      toast.error("Please correct the errors in the form");
+    }
+  };
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormField
-          control={form.control}
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 max-w-2xl mx-auto p-6 bg-white rounded-lg shadow"
+    >
+      <h2 className="text-2xl font-bold mb-6">Create Event</h2>
+
+      <div className="space-y-2">
+        <Label htmlFor="name">Event Name</Label>
+        <Input
+          id="name"
           name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Event Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter event name" {...field} />
-              </FormControl>
-              <FormDescription>
-                The name of your event.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+          value={event.name}
+          onChange={handleInputChange}
+          required
         />
-        <FormField
-          control={form.control}
+        {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
           name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Describe your event"
-                  className="resize-none"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Provide a brief description of your event.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+          value={event.description}
+          onChange={handleInputChange}
+          required
         />
-        <FormField
-          control={form.control}
-          name="date"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-[240px] pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) =>
-                      date < new Date() || date < new Date("1900-01-01")
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormDescription>
-                The date of your event.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+        {errors.description && (
+          <p className="text-sm text-red-500">{errors.description}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Start Date</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left font-normal"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {event.date ? format(new Date(event.date), "PPP") : <span>Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={event.date ? new Date(event.date) : undefined}
+              onSelect={(date) => handleDateChange(date, "date")}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+        {errors.date && <p className="text-sm text-red-500">{errors.date}</p>}
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="isMultiDay"
+          checked={event.isMultiDay}
+          onCheckedChange={handleCheckboxChange}
         />
-        <FormField
-          control={form.control}
+        <Label htmlFor="isMultiDay">Multi-day event</Label>
+      </div>
+
+      {event.isMultiDay && (
+        <div className="space-y-2">
+          <Label>End Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {event.endDate ? format(new Date(event.endDate), "PPP") : <span>Pick an end date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={event.endDate ? new Date(event.endDate) : undefined}
+                onSelect={(date) => handleDateChange(date, "endDate")}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          {errors.endDate && <p className="text-sm text-red-500">{errors.endDate}</p>}
+        </div>
+      )}
+
+      <div className="flex space-x-4">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="startTime">Start Time</Label>
+          <Input
+            id="startTime"
+            name="startTime"
+            type="time"
+            value={event.schedule.startTime}
+            onChange={handleScheduleChange}
+            required
+          />
+          {errors.schedule?.startTime && (
+            <p className="text-sm text-red-500">{errors.schedule.startTime}</p>
+          )}
+        </div>
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="endTime">End Time</Label>
+          <Input
+            id="endTime"
+            name="endTime"
+            type="time"
+            value={event.schedule.endTime}
+            onChange={handleScheduleChange}
+            required
+          />
+          {errors.schedule?.endTime && (
+            <p className="text-sm text-red-500">{errors.schedule.endTime}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="location">Location</Label>
+        <Input
+          id="location"
           name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter event location" {...field} />
-              </FormControl>
-              <FormDescription>
-                Where will the event take place?
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+          value={event.location}
+          onChange={handleInputChange}
+          required
         />
-       <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Create Event"}
-        </Button>
-      </form>
-      <Toaster position="top-center" />
-    </Form>
-  )
+        {errors.location && (
+          <p className="text-sm text-red-500">{errors.location}</p>
+        )}
+      </div>
+
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? (
+          <span>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Creating Event...
+          </span>
+        ) : (
+          "Create Event"
+        )}
+      </Button>
+    </form>
+  );
 }
