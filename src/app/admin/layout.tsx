@@ -85,7 +85,29 @@ export default function RootLayout({
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top bar */}
 
-            <Header />
+            <header className="bg-white shadow-sm z-10">
+              <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden"
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                >
+                  <Menu className="h-6 w-6" />
+                </Button>
+                <h1 className="text-2xl font-semibold text-gray-900">
+                  Admin Dashboard
+                </h1>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">
+                    Welcome, {role}
+                  </span>
+                  <Button onClick={handleLogout} variant="outline" size="sm">
+                    Logout
+                  </Button>
+                </div>
+              </div>
+            </header>
             {/* Page Content */}
             <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
               {children}
