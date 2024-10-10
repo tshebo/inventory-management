@@ -31,7 +31,7 @@ import Spinner from "./Spinner";
 interface Product {
   id: string;
   name: string;
-  description: string;
+  instock: string;
   price: number;
 }
 
@@ -88,7 +88,7 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Product List</h2>
-        <Link href="/add-product" passHref>
+        <Link href="/admin/products/add" passHref>
           <Button>
             <Plus className="mr-2 h-4 w-4" /> Add Product
           </Button>
@@ -99,7 +99,7 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Product Name</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead>In Stock</TableHead>
               <TableHead>Price</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -108,7 +108,7 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
             {products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.description}</TableCell>
+                <TableCell>{product.instock}</TableCell>
                 <TableCell>R{product.price.toFixed(2)}</TableCell>
                 <TableCell className="text-right">
                   <Button
