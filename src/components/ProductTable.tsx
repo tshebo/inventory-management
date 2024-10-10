@@ -27,34 +27,50 @@ import {
 } from "@/components/ui/alert-dialog";
 import Spinner from "./Spinner";
 
-// Define the type for a product
+// Updated Product interface
 interface Product {
   id: string;
   name: string;
-  instock: string;
+  description: string;
   price: number;
+  inStock: number;
+  storeId: string;
+  storeName?: string; // Added to store the name after joining
 }
 
-// Define the props for the component
 interface ProductTableProps {
-  onEdit: (product: Product) => void; // Function to handle the edit action
+  onEdit: (product: Product) => void;
 }
 
 export default function ProductTable({ onEdit }: ProductTableProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Fetch products from Firestore
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        // Fetch products
         const productCollection = collection(db, "products");
         const productSnapshot = await getDocs(productCollection);
         const productList = productSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Product[];
-        setProducts(productList);
+
+        // Fetch stores
+        const storeCollection = collection(db, "stores");
+        const storeSnapshot = await getDocs(storeCollection);
+        const stores = Object.fromEntries(
+          storeSnapshot.docs.map((doc) => [doc.id, doc.data().name])
+        );
+
+        // Join products with store names
+        const productsWithStores = productList.map((product) => ({
+          ...product,
+          storeName: stores[product.storeId] || "Unknown Store",
+        }));
+
+        setProducts(productsWithStores);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -65,7 +81,6 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
     fetchProducts();
   }, []);
 
-  // Handle deleting a product
   const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, "products", id));
@@ -75,7 +90,6 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
     }
   };
 
-  // Show a loading spinner while fetching data
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -99,8 +113,10 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Product Name</TableHead>
-              <TableHead>In Stock</TableHead>
+              <TableHead>Description</TableHead>
               <TableHead>Price</TableHead>
+              <TableHead>In Stock</TableHead>
+              <TableHead>Store</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -108,8 +124,10 @@ export default function ProductTable({ onEdit }: ProductTableProps) {
             {products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.instock}</TableCell>
+                <TableCell>{product.description}</TableCell>
                 <TableCell>R{product.price.toFixed(2)}</TableCell>
+                <TableCell>{product.inStock}</TableCell>
+                <TableCell>{product.storeName}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"

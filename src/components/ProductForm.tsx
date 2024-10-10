@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react"; // Add useState, useEffect, useRef from React
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, auth, storage } from "@/lib/firebase";
@@ -67,8 +66,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function ProductForm() {
-  const searchParams = useSearchParams();
-  const initialStoreId = searchParams.get("storeId");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<ProductFormData>({
@@ -77,7 +74,7 @@ export default function ProductForm() {
     price: "",
     cost: "",
     inStock: "",
-    storeId: initialStoreId || "",
+    storeId: "",
     imageFile: null,
   });
 
@@ -85,9 +82,7 @@ export default function ProductForm() {
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
-    {}
-  );
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 
   useEffect(() => {
@@ -99,18 +94,13 @@ export default function ProductForm() {
           name: doc.data().name,
         }));
         setStores(storesData);
-
-        if (initialStoreId) {
-          const store = storesData.find((s) => s.id === initialStoreId);
-          if (store) setSelectedStore(store);
-        }
       } catch (err) {
         console.error("Error fetching stores:", err);
         toast.error("Failed to load stores");
       }
     }
     fetchStores();
-  }, [initialStoreId]);
+  }, []);
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
@@ -173,7 +163,6 @@ export default function ProductForm() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       setValidationErrors((prev) => ({
         ...prev,
@@ -182,7 +171,6 @@ export default function ProductForm() {
       return;
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       setValidationErrors((prev) => ({
         ...prev,
@@ -200,7 +188,6 @@ export default function ProductForm() {
       image: undefined,
     }));
 
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
@@ -245,14 +232,13 @@ export default function ProductForm() {
       await addDoc(collection(db, "products"), productData);
       toast.success("Product added successfully");
 
-      // Reset form
       setFormData({
         name: "",
         category: "",
         price: "",
         cost: "",
         inStock: "",
-        storeId: initialStoreId || "",
+        storeId: "",
         imageFile: null,
       });
       setImagePreview(null);
@@ -266,6 +252,7 @@ export default function ProductForm() {
       setIsLoading(false);
     }
   };
+
   return (
     <div className="max-w-2xl mx-auto p-4">
       <Card>
@@ -279,6 +266,7 @@ export default function ProductForm() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {/* Form fields remain the same */}
             <div className="space-y-2">
               <Label htmlFor="name">Product Name</Label>
               <Input
@@ -347,9 +335,7 @@ export default function ProductForm() {
                   className={validationErrors.cost ? "border-red-500" : ""}
                 />
                 {validationErrors.cost && (
-                  <p className="text-sm text-red-500">
-                    {validationErrors.cost}
-                  </p>
+                  <p className="text-sm text-red-500">{validationErrors.cost}</p>
                 )}
               </div>
             </div>
@@ -404,33 +390,31 @@ export default function ProductForm() {
               )}
             </div>
 
-            {!initialStoreId && (
-              <div className="space-y-2">
-                <Label htmlFor="storeId">Store</Label>
-                <Select
-                  value={formData.storeId}
-                  onValueChange={(value) => handleInputChange("storeId", value)}
+            <div className="space-y-2">
+              <Label htmlFor="storeId">Store</Label>
+              <Select
+                value={formData.storeId}
+                onValueChange={(value) => handleInputChange("storeId", value)}
+              >
+                <SelectTrigger
+                  className={validationErrors.storeId ? "border-red-500" : ""}
                 >
-                  <SelectTrigger
-                    className={validationErrors.storeId ? "border-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select a store" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stores.map((store) => (
-                      <SelectItem key={store.id} value={store.id}>
-                        {store.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {validationErrors.storeId && (
-                  <p className="text-sm text-red-500">
-                    {validationErrors.storeId}
-                  </p>
-                )}
-              </div>
-            )}
+                  <SelectValue placeholder="Select a store" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {validationErrors.storeId && (
+                <p className="text-sm text-red-500">
+                  {validationErrors.storeId}
+                </p>
+              )}
+            </div>
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isLoading} className="w-full">

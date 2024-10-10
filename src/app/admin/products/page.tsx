@@ -25,40 +25,48 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import Spinner from "@/components/Spinner"
+import Spinner from "@/components/Spinner";
 
-// Define the type for a product
+// Updated Product interface
 interface Product {
   id: string;
   name: string;
-  instock: string;
+  description: string;
   price: number;
+  inStock: number;
+  storeId: string;
+  storeName?: string;  
 }
 
-// Define the props for the component
-interface ProductTableProps {
-  onEdit: (product: Product) => void; // Function to handle the edit action
-}
-
-export default function ProductTable(
-  // { onEdit }: ProductTableProps
-)
-
-{
+export default function ProductTable() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Fetch products from Firestore
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        // Fetch products
         const productCollection = collection(db, "products");
         const productSnapshot = await getDocs(productCollection);
         const productList = productSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Product[];
-        setProducts(productList);
+
+        // Fetch stores
+        const storeCollection = collection(db, "stores");
+        const storeSnapshot = await getDocs(storeCollection);
+        const stores = Object.fromEntries(
+          storeSnapshot.docs.map((doc) => [doc.id, doc.data().name])
+        );
+
+        // Join products with store names
+        const productsWithStores = productList.map((product) => ({
+          ...product,
+          storeName: stores[product.storeId] || "Unknown Store",
+        }));
+
+        setProducts(productsWithStores);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -69,7 +77,6 @@ export default function ProductTable(
     fetchProducts();
   }, []);
 
-  // Handle deleting a product
   const handleDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, "products", id));
@@ -79,7 +86,6 @@ export default function ProductTable(
     }
   };
 
-  // Show a loading spinner while fetching data
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -89,7 +95,7 @@ export default function ProductTable(
   }
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto p-10">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Product List</h2>
         <Link href="/admin/products/add" passHref>
@@ -103,8 +109,9 @@ export default function ProductTable(
           <TableHeader>
             <TableRow>
               <TableHead>Product Name</TableHead>
-              <TableHead>In Stock</TableHead>
               <TableHead>Price</TableHead>
+              <TableHead>In Stock</TableHead>
+              <TableHead>Store</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -112,15 +119,11 @@ export default function ProductTable(
             {products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.instock}</TableCell>
                 <TableCell>R{product.price.toFixed(2)}</TableCell>
+                <TableCell>{product.inStock}</TableCell>
+                <TableCell>{product.storeName}</TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    // onClick={() => onEdit(product)}
-                    className="mr-2"
-                  >
+                  <Button variant="ghost" size="icon" className="mr-2">
                     <Pencil className="h-4 w-4" />
                     <span className="sr-only">Edit</span>
                   </Button>
