@@ -23,7 +23,7 @@ import { Toaster } from "react-hot-toast";
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: BarChart2 },
   { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Vendors", href: "/admin/stores/", icon: Store },
+  { name: "Stores", href: "/admin/stores/", icon: Store },
   { name: "Events", href: "/admin/events", icon: Calendar },
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
   { name: "Settings", href: "/admin/settings", icon: Settings },
