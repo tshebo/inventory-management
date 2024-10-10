@@ -4,7 +4,7 @@ import React from "react";
 import { useAuth } from "@/hooks/auth";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/Spinner";
-function page() {
+function Page() {
   const { user, role, loading } = useAuth();
   const router = useRouter();
 
