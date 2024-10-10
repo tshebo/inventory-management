@@ -43,7 +43,7 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
-    "firebase": "^10.13.2",
+    "firebase": "^10.14.0",
     "firebase-admin": "^12.5.0",
     "firebaseui": "^6.1.0",
     "input-otp": "^1.2.4",

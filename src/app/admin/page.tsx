@@ -17,10 +17,27 @@ import {
   Settings,
   Menu,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/auth";
+import Spinner from "@/components/Spinner";
 
 export default function AdminDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { role, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div>
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (role !== "admin") {
+    router.push("/unauthorized");
+  }
 
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: BarChart2 },

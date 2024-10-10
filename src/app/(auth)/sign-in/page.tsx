@@ -35,7 +35,7 @@ export default function LoginPageWrapper() {
     );
   } else if (role === "vendor") {
     router.push("/dashboard");
-  } else if (role === "user") {
+  } else if (role === "customer") {
     router.push("/waiting-room");
   }
 

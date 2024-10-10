@@ -17,7 +17,7 @@ export default function WaitingRoom() {
   const { user, role, loading } = useAuth();
   const checkRoleAssignment = useCallback(async () => {
     try {
-      if (role !== "user") {
+      if (role !== "customer") {
         router.push("/sign-in");
       }
     } catch (error) {

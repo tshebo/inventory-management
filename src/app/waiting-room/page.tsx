@@ -14,7 +14,7 @@ export default function WaitingRoomPage() {
     if (!loading) {
       if (!user) {
         router.replace('/sign-in')
-      } else if (role && role !== 'user') {
+      } else if (role && role !== 'customer') {
         // If role is already assigned, redirect to appropriate page
         const redirectMap: { [key: string]: string } = {
           admin: '/admin',
@@ -42,7 +42,7 @@ export default function WaitingRoomPage() {
   }
 
   // If user exists but role isn't 'user', useEffect will handle redirect
-  if (role && role !== 'user') {
+  if (role && role !== 'customer') {
     return null
   }
 

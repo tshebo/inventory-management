@@ -1,5 +1,5 @@
 "use client";
-
+import { serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import React, { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useForm, SubmitHandler } from "react-hook-form";
@@ -30,6 +30,7 @@ type FormInputs = {
   confirmPassword: string;
 };
 
+
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,7 +60,8 @@ export default function SignUpPage() {
       await setDoc(doc(db, "users", user.uid), {
         email: data.email,
         name: data.name,
-        role: "user",
+        role: "customer",
+        createdAt: serverTimestamp(), 
       });
 
       console.log("User signed up:", user);

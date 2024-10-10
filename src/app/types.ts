@@ -2,7 +2,7 @@
 interface User {
   email: string;
   name: string;
-  role: 'admin' | 'vendor' | 'user';
+  role: 'admin' | 'vendor' | 'customer';
 }
 
 interface Store {

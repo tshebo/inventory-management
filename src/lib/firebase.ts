@@ -4,20 +4,21 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { Firestore, getFirestore } from "firebase/firestore";
- 
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyAuCdkzJKOPooS3rwLdpjpgOTzMWGzjV_A",
-  authDomain: "buyukinventory.firebaseapp.com",
-  projectId: "buyukinventory",
-  storageBucket: "buyukinventory.appspot.com",
-  messagingSenderId: "977364581610",
-  appId: "1:977364581610:web:bfb11bbd8503aa5f5fab93",
-  measurementId: "G-49HZ5EFSY6"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId:process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId:process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId:process.env.NEXT_PUBLIC_MEASUREMENT_ID
 };
 
 // Initialize Firebase
@@ -25,3 +26,4 @@ const app = initializeApp(firebaseConfig);
 // const analytics = getAnalytics(app);
 export const auth = getAuth(app)
 export const db = getFirestore(app);
+export const storage = getStorage(app);
