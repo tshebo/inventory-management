@@ -19,7 +19,6 @@ import { useLogout } from "@/hooks/logouts";
 import { useAuth } from "@/hooks/auth";
 import Spinner from "@/components/Spinner";
 import { Toaster } from "react-hot-toast";
-import Header from "@/components/Header";
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: BarChart2 },
