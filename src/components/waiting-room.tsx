@@ -37,7 +37,7 @@ export default function WaitingRoom() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-center">
-              We're sorry, but the role assignment is taking longer than
+              We&apos;re sorry, but the role assignment is taking longer than
               expected. Please try refreshing the page or contact support.
             </p>
           </CardContent>

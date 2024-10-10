@@ -18,7 +18,7 @@ export default function UnauthorizedPage() {
             Unauthorized Access
           </CardTitle>
           <CardDescription className="mt-2 text-center text-sm text-gray-600">
-            Sorry, you don't have permission to access this page.
+            Sorry, you don&apos;t have permission to access this page.
           </CardDescription>
         </CardHeader>
         <CardContent>
