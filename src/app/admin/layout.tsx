@@ -11,9 +11,8 @@ import {
   Store,
   Users,
   Menu,
+  LogOut,
 } from "lucide-react";
-import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { Button } from "@/components/ui/button";
 import { useLogout } from "@/hooks/logouts";
 import { useAuth } from "@/hooks/auth";
@@ -23,13 +22,13 @@ import { Toaster } from "react-hot-toast";
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: BarChart2 },
   { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Stores", href: "/admin/stores/", icon: Store },
+  { name: "Stores", href: "/admin/stores", icon: Store },
   { name: "Events", href: "/admin/events", icon: Calendar },
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-export default function RootLayout({
+export default function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -41,80 +40,117 @@ export default function RootLayout({
   const router = useRouter();
 
   const handleLogout = async () => {
-    if (loading) {
-      <Spinner />;
-    } else {
+    if (!loading) {
       const { success } = await logout();
       if (success) {
         router.push("/");
-        console.log("Logged out successfully");
       }
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
-    <html lang="en">
-      <body
-      // className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+    <div className="flex min-h-screen bg-gray-100">
+      {/* Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 z-40 h-screen w-64 -translate-x-full transform bg-white transition-transform lg:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : ""
+        }`}
       >
-        <div className="flex h-screen bg-gray-100">
-          {/* Sidebar */}
-          <aside
-            className={`bg-white w-64 min-h-screen p-4 ${
-              isSidebarOpen ? "block" : "hidden"
-            } md:block`}
-          >
-            <nav className="mt-8">
-              {navItems.map((item) => (
-                <Link key={item.name} href={item.href}>
-                  <span
-                    className={`flex items-center px-4 py-2 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 ${
-                      pathname === item.href ? "bg-gray-200" : ""
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5 mr-2" />
-                    {item.name}
-                  </span>
-                </Link>
-              ))}
-            </nav>
-          </aside>
+        <div className="flex h-full flex-col">
+          {/* Sidebar Header */}
+          <div className="flex h-16 items-center justify-between border-b px-4">
+            <span className="text-xl font-semibold">Admin Panel</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
 
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Top bar */}
-
-            <header className="bg-white shadow-sm z-10">
-              <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden"
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 px-2 py-4">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
+                    isActive
+                      ? "bg-gray-100 text-gray-900"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
                 >
-                  <Menu className="h-6 w-6" />
-                </Button>
-                <h1 className="text-2xl font-semibold text-gray-900">
-                  Admin Dashboard
-                </h1>
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">
-                    Welcome, {role}
-                  </span>
-                  <Button onClick={handleLogout} variant="outline" size="sm">
-                    Logout
-                  </Button>
-                </div>
-              </div>
-            </header>
-            {/* Page Content */}
-            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
-              {children}
-              <Toaster />
-            </main>
+                  <Icon className="mr-3 h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Logout Button */}
+          <div className="border-t p-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={handleLogout}
+              disabled={loading}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
           </div>
         </div>
-      </body>
-    </html>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col lg:pl-64">
+        {/* Top Navigation */}
+        <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-white px-4 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-4 lg:hidden"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex flex-1 items-center justify-between">
+            <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">
+                Welcome, {role}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 p-4">
+          {children}
+          <Toaster />
+        </main>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-gray-600 bg-opacity-50 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+    </div>
   );
 }

@@ -16,6 +16,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "Buyuk Chamlija Inventory",
+  
   description:
     "This website is used to manage Buyuk Chamlija events and Track Sales and inventory",
 };
