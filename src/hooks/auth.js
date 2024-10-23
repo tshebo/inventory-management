@@ -53,7 +53,6 @@ export function useAuth() {
   const signOut = async () => {
     try {
       await auth.signOut();
-      // Cookies will be removed by the auth state change listener
     } catch (error) {
       console.error("Error signing out:", error);
     }

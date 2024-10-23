@@ -121,7 +121,13 @@ export default function StoreGallery() {
                 </CardDescription>
               </CardHeader>
               <CardFooter className="flex justify-between mt-auto">
-                <Button variant="outline" className="flex items-center">
+                <Button variant="outline"
+                
+                onClick={() => {
+                  // Assuming you're using Next.js
+                  router.push(`/admin/stores/${store.id}`);
+                }}
+                  className="flex items-center">
                   <Eye className="mr-2 h-4 w-4" /> View Details
                 </Button>
                 <Button

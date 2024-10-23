@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { collection, getDocs, addDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, auth, storage } from "@/lib/firebase";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -66,6 +67,8 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function ProductForm() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("storeId");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<ProductFormData>({
@@ -74,7 +77,7 @@ export default function ProductForm() {
     price: "",
     cost: "",
     inStock: "",
-    storeId: "",
+    storeId: storeId || "",
     imageFile: null,
   });
 
@@ -85,6 +88,7 @@ export default function ProductForm() {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 
+  // Fetch all stores and find the pre-selected store if storeId is provided
   useEffect(() => {
     async function fetchStores() {
       try {
@@ -94,13 +98,25 @@ export default function ProductForm() {
           name: doc.data().name,
         }));
         setStores(storesData);
+
+        // If storeId is provided, fetch and set the selected store
+        if (storeId) {
+          const storeDoc = await getDoc(doc(db, "stores", storeId));
+          if (storeDoc.exists()) {
+            const store = {
+              id: storeDoc.id,
+              name: storeDoc.data().name,
+            };
+            setSelectedStore(store);
+          }
+        }
       } catch (err) {
         console.error("Error fetching stores:", err);
         toast.error("Failed to load stores");
       }
     }
     fetchStores();
-  }, []);
+  }, [storeId]);
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
@@ -391,10 +407,11 @@ export default function ProductForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="storeId">Store</Label>
+            <Label htmlFor="storeId">Store</Label>
               <Select
                 value={formData.storeId}
                 onValueChange={(value) => handleInputChange("storeId", value)}
+                disabled={!!storeId} // Disable if storeId is provided in URL
               >
                 <SelectTrigger
                   className={validationErrors.storeId ? "border-red-500" : ""}
