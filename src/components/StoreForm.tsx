@@ -36,7 +36,7 @@ interface ValidationErrors {
   vendors: string;
 }
 
-async function fetchVendors() {
+export async function fetchVendors() {
   console.log("Fetching vendors...");
   const vendorsQuery = query(
     collection(db, "users"),
@@ -64,13 +64,12 @@ async function fetchVendors() {
     });
 
     console.log("Processed vendors:", vendors);
-    return vendors;
+    return vendors; // Ensure this returns an array of Vendor objects
   } catch (error) {
     console.error("Error fetching vendors:", error);
-    return [];
+    return []; // Return an empty array on error
   }
 }
-
 export default function StoreForm() {
   const [formData, setFormData] = useState<FormData>({
     name: "",

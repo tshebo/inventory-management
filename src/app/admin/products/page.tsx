@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import Spinner from "@/components/Spinner";
 
-// Updated Product interface
 interface Product {
   id: string;
   name: string;
@@ -35,12 +34,33 @@ interface Product {
   price: number;
   inStock: number;
   storeId: string;
-  storeName?: string;  
+  storeName?: string;
 }
+
+// Helper function to format price safely
+const formatPrice = (price: number | undefined): string => {
+  if (typeof price !== 'number' || isNaN(price)) {
+    return 'R0.00';
+  }
+  return `R${price.toFixed(2)}`;
+};
+
+// Helper function to validate product data
+const validateProduct = (product: any): product is Product => {
+  return (
+    product &&
+    typeof product.id === 'string' &&
+    typeof product.name === 'string' &&
+    typeof product.price === 'number' &&
+    typeof product.inStock === 'number' &&
+    typeof product.storeId === 'string'
+  );
+};
 
 export default function ProductTable() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -51,8 +71,11 @@ export default function ProductTable() {
         const productList = productSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        })) as Product[];
+        }));
 
+        // Validate products
+        const validProducts = productList.filter(validateProduct);
+        
         // Fetch stores
         const storeCollection = collection(db, "stores");
         const storeSnapshot = await getDocs(storeCollection);
@@ -61,7 +84,7 @@ export default function ProductTable() {
         );
 
         // Join products with store names
-        const productsWithStores = productList.map((product) => ({
+        const productsWithStores = validProducts.map((product) => ({
           ...product,
           storeName: stores[product.storeId] || "Unknown Store",
         }));
@@ -69,6 +92,7 @@ export default function ProductTable() {
         setProducts(productsWithStores);
       } catch (error) {
         console.error("Error fetching products:", error);
+        setError("Failed to fetch products. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -83,6 +107,7 @@ export default function ProductTable() {
       setProducts(products.filter((product) => product.id !== id));
     } catch (error) {
       console.error("Error deleting product:", error);
+      setError("Failed to delete product. Please try again later.");
     }
   };
 
@@ -90,6 +115,14 @@ export default function ProductTable() {
     return (
       <div className="flex justify-center items-center h-64">
         <Spinner />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-red-500">{error}</div>
       </div>
     );
   }
@@ -118,10 +151,12 @@ export default function ProductTable() {
           <TableBody>
             {products.map((product) => (
               <TableRow key={product.id}>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>R{product.price.toFixed(2)}</TableCell>
-                <TableCell>{product.inStock}</TableCell>
-                <TableCell>{product.storeName}</TableCell>
+                <TableCell className="font-medium">
+                  {product.name || 'Unnamed Product'}
+                </TableCell>
+                <TableCell>{formatPrice(product.price)}</TableCell>
+                <TableCell>{product.inStock ?? 0}</TableCell>
+                <TableCell>{product.storeName || 'Unknown Store'}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" className="mr-2">
                     <Pencil className="h-4 w-4" />
