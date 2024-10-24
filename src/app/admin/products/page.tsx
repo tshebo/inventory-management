@@ -5,6 +5,7 @@ import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import Link from "next/link";
+import EditProductModal from "@/components/EditProduct";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -35,12 +36,15 @@ interface Product {
   inStock: number;
   storeId: string;
   storeName?: string;
+  category: string;
+  cost: number;
+  imageUrl: string;
 }
 
 // Helper function to format price safely
 const formatPrice = (price: number | undefined): string => {
-  if (typeof price !== 'number' || isNaN(price)) {
-    return 'R0.00';
+  if (typeof price !== "number" || isNaN(price)) {
+    return "R0.00";
   }
   return `R${price.toFixed(2)}`;
 };
@@ -49,11 +53,11 @@ const formatPrice = (price: number | undefined): string => {
 const validateProduct = (product: any): product is Product => {
   return (
     product &&
-    typeof product.id === 'string' &&
-    typeof product.name === 'string' &&
-    typeof product.price === 'number' &&
-    typeof product.inStock === 'number' &&
-    typeof product.storeId === 'string'
+    typeof product.id === "string" &&
+    typeof product.name === "string" &&
+    typeof product.price === "number" &&
+    typeof product.inStock === "number" &&
+    typeof product.storeId === "string"
   );
 };
 
@@ -61,7 +65,10 @@ export default function ProductTable() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [editingProduct, setEditingProduct] = useState<Product | null>(
+    null
+  );
+  
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -75,7 +82,7 @@ export default function ProductTable() {
 
         // Validate products
         const validProducts = productList.filter(validateProduct);
-        
+
         // Fetch stores
         const storeCollection = collection(db, "stores");
         const storeSnapshot = await getDocs(storeCollection);
@@ -100,6 +107,12 @@ export default function ProductTable() {
 
     fetchProducts();
   }, []);
+
+  const handleProductUpdate = (updatedProduct: Product) => {
+    setProducts(
+      products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+    );
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -152,13 +165,18 @@ export default function ProductTable() {
             {products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">
-                  {product.name || 'Unnamed Product'}
+                  {product.name || "Unnamed Product"}
                 </TableCell>
                 <TableCell>{formatPrice(product.price)}</TableCell>
                 <TableCell>{product.inStock ?? 0}</TableCell>
-                <TableCell>{product.storeName || 'Unknown Store'}</TableCell>
+                <TableCell>{product.storeName || "Unknown Store"}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="mr-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditingProduct(product)}
+                    className="mr-2"
+                  >
                     <Pencil className="h-4 w-4" />
                     <span className="sr-only">Edit</span>
                   </Button>
@@ -195,6 +213,14 @@ export default function ProductTable() {
           </TableBody>
         </Table>
       </div>
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          isOpen={!!editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onProductUpdate={handleProductUpdate}
+        />
+      )}
     </div>
   );
 }

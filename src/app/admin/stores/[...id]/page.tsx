@@ -43,7 +43,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import EditStoreModal from "./EditStoreModal";
-
+import EditProductModal from "@/components/EditProduct";
 interface StoreData {
   id: string;
   name: string;
@@ -57,13 +57,14 @@ interface StoreData {
 interface ProductData {
   id: string;
   name: string;
-  category: string;
-  cost: number;
+  description: string;
   price: number;
   inStock: number;
+  storeId: string;
+  storeName?: string;
+  category: string;
+  cost: number;
   imageUrl: string;
-  createdAt: string;
-  createdBy: string;
 }
 
 export default function StoreDetailsPage({
@@ -78,6 +79,9 @@ export default function StoreDetailsPage({
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductData | null>(
+    null
+  );
 
   useEffect(() => {
     async function fetchStoreAndProducts() {
@@ -90,7 +94,7 @@ export default function StoreDetailsPage({
       try {
         const storeRef = doc(db, "stores", String(params.id));
         const storeDoc = await getDoc(storeRef);
-        
+
         if (!storeDoc.exists()) {
           setError("Store not found");
           return;
@@ -98,7 +102,7 @@ export default function StoreDetailsPage({
 
         const storeData = {
           id: storeDoc.id,
-          ...storeDoc.data()
+          ...storeDoc.data(),
         } as StoreData;
         setStore(storeData);
 
@@ -110,10 +114,9 @@ export default function StoreDetailsPage({
         const productsSnapshot = await getDocs(productsQuery);
         const productsData = productsSnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         })) as ProductData[];
         setProducts(productsData);
-
       } catch (err) {
         console.error("Error fetching store details:", err);
         setError("Failed to fetch store details");
@@ -129,6 +132,12 @@ export default function StoreDetailsPage({
     setStore(updatedStore);
   };
 
+  const handleProductUpdate = (updatedProduct: ProductData) => {
+    setProducts(
+      products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+    );
+  };
+
   const handleDeleteStore = async () => {
     if (!store) return;
 
@@ -142,7 +151,7 @@ export default function StoreDetailsPage({
       // Then delete the store
       await deleteDoc(doc(db, "stores", store.id));
 
-      router.push("/stores"); // Redirect to stores list
+      router.push("/admin/stores"); // Redirect to stores list
     } catch (err) {
       console.error("Error deleting store:", err);
       setError("Failed to delete store");
@@ -299,13 +308,13 @@ export default function StoreDetailsPage({
                   <span className="font-semibold">
                     {products.length > 0
                       ? `${(
-                          (products.reduce(
+                          products.reduce(
                             (sum, product) =>
-                              sum + (product.price - product.cost),
+                              sum +
+                              ((product.price - product.cost) / product.price) *
+                                100,
                             0
-                          ) /
-                            products.length) *
-                          100
+                          ) / products.length
                         ).toFixed(1)}%`
                       : "N/A"}
                   </span>
@@ -394,9 +403,7 @@ export default function StoreDetailsPage({
                       <Button
                         variant="outline"
                         className="flex-1"
-                        onClick={() =>
-                          router.push(`admin/products/${product.id}`)
-                        }
+                        onClick={() => setEditingProduct(product)}
                       >
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit
@@ -437,13 +444,22 @@ export default function StoreDetailsPage({
       </div>
       {/* Edit Store Modal */}
       {store && (
-      <EditStoreModal
-        store={store}
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onStoreUpdate={handleStoreUpdate}
-      />
-    )}
+        <EditStoreModal
+          store={store}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onStoreUpdate={handleStoreUpdate}
+        />
+      )}
+
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          isOpen={!!editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onProductUpdate={handleProductUpdate}
+        />
+      )}
     </div>
   );
 }

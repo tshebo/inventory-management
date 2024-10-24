@@ -26,6 +26,18 @@ interface StoreData {
   vendorIds: string[];
 }
 
+interface ProductData {
+  id: string;
+  name: string;
+  category: string;
+  cost: number;
+  price: number;
+  inStock: number;
+  imageUrl: string;
+  createdAt: string;
+  createdBy: string;
+}
+
 interface Vendor {
   uid: string;
   displayName: string;

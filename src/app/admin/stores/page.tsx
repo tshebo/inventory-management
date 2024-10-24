@@ -133,7 +133,7 @@ export default function StoreGallery() {
                 <Button
                   onClick={() => {
                     // Assuming you're using Next.js
-                    router.push(`/products/add?storeId=${store.id}`);
+                    router.push(`/admin/products/add`);
                   }}
                   className="flex items-center"
                 >
