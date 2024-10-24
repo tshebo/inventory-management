@@ -1,8 +1,14 @@
-'use client'
+"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { collection, query, onSnapshot, where, orderBy } from "firebase/firestore";
+import {
+  collection,
+  query,
+  onSnapshot,
+  where,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,22 +52,22 @@ export default function AdminDashboard() {
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
-  
+
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
-  
+
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const router = useRouter();
   const { role, loading } = useAuth();
 
   // Firebase data fetching with error handling
   useEffect(() => {
     if (!role) return;
-    
+
     // if (role !== "admin") {
     //   router.push("/unauthorized");
     //   return;
@@ -69,20 +75,26 @@ export default function AdminDashboard() {
 
     const unsubscribers: (() => void)[] = []; // Explicitly define the type
 
-    const setupSubscription = (collectionName: string, setter: React.Dispatch<React.SetStateAction<any[]>>, orderByField: string = "createdAt") => {
+    const setupSubscription = (
+      collectionName: string,
+      setter: React.Dispatch<React.SetStateAction<any[]>>,
+      orderByField: string = "createdAt"
+    ) => {
       try {
         const collectionQuery = query(
-          collection(db, collectionName), 
+          collection(db, collectionName),
           orderBy(orderByField, "desc")
         );
-        
-        const unsubscribe = onSnapshot(collectionQuery, 
+
+        const unsubscribe = onSnapshot(
+          collectionQuery,
           (snapshot) => {
-            const data = snapshot.docs.map(doc => ({
+            const data = snapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
-              createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-              date: doc.data().date?.toDate?.() || doc.data().date
+              createdAt:
+                doc.data().createdAt?.toDate?.() || doc.data().createdAt,
+              date: doc.data().date?.toDate?.() || doc.data().date,
             }));
             setter(data);
           },
@@ -91,12 +103,11 @@ export default function AdminDashboard() {
             setError(error.message);
           }
         );
-        
+
         unsubscribers.push(unsubscribe);
       } catch (err) {
         console.error(`Error setting up ${collectionName} subscription:`, err);
         setError((err as Error).message); // Type assertion to Error
-        
       }
     };
 
@@ -109,76 +120,102 @@ export default function AdminDashboard() {
     setIsLoading(false);
 
     return () => {
-      unsubscribers.forEach(unsub => unsub?.());
+      unsubscribers.forEach((unsub) => unsub?.());
     };
   }, [role, router]);
 
   // Memoized filter function
-  const filterData = useMemo(() => (data: any[], type: string) => { // Specify types for parameters
+  const filterData = useMemo(
+    () => (data: any[], type: string) => {
+      // Specify types for parameters
 
-    if (!data) return [];
-    
-    let filtered = data;
+      if (!data) return [];
 
-    // Apply search term
-    if (searchTerm) {
-      filtered = filtered.filter(item =>
-        Object.entries(item).some(([key, value]) => 
-          ['name', 'email', 'description'].includes(key) &&
-          value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
+      let filtered = data;
 
-    // Apply specific filters
-    if (selectedFilter !== "all") {
-      switch (type) {
-        case "users":
-          filtered = filtered.filter(user => user.role === selectedFilter);
-          break;
-        case "events":
-          filtered = filtered.filter(event => event.status === selectedFilter);
-          break;
-        case "products":
-          filtered = filtered.filter(product => product.category === selectedFilter);
-          break;
+      // Apply search term
+      if (searchTerm) {
+        filtered = filtered.filter((item) =>
+          Object.entries(item).some(
+            ([key, value]) =>
+              ["name", "email", "description"].includes(key) &&
+              value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        );
       }
-    }
 
-    return filtered;
-  }, [searchTerm, selectedFilter]);
+      // Apply specific filters
+      if (selectedFilter !== "all") {
+        switch (type) {
+          case "users":
+            filtered = filtered.filter((user) => user.role === selectedFilter);
+            break;
+          case "events":
+            filtered = filtered.filter(
+              (event) => event.status === selectedFilter
+            );
+            break;
+          case "products":
+            filtered = filtered.filter(
+              (product) => product.category === selectedFilter
+            );
+            break;
+        }
+      }
+
+      return filtered;
+    },
+    [searchTerm, selectedFilter]
+  );
 
   // Memoized analytics calculations
-  const analytics = useMemo(() => ({
-    users: {
-      total: users.length,
-      growth: users.length ? ((users.filter(u => {
-        const date = u.createdAt instanceof Date ? u.createdAt : new Date(u.createdAt);
-        return date > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      }).length / users.length) * 100).toFixed(1) : 0
-    },
-    stores: {
-      total: stores.length,
-      activeVendors: stores.filter(s => Array.isArray(s.vendorIds) && s.vendorIds.length > 0).length
-    },
-    events: {
-      upcoming: events.filter(e => new Date(e.date) > new Date()).length,
-      active: events.filter(e => e.status === "active").length
-    },
-    products: {
-      total: products.length,
-      inStock: products.filter(p => (p.inStock || 0) > 0).length,
-      lowStock: products.filter(p => (p.inStock || 0) > 0 && p.inStock < 10).length
-    }
-  }), [users, stores, events, products]);
+  const analytics = useMemo(
+    () => ({
+      users: {
+        total: users.length,
+        growth: users.length
+          ? (
+              (users.filter((u) => {
+                const date =
+                  u.createdAt instanceof Date
+                    ? u.createdAt
+                    : new Date(u.createdAt);
+                return date > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+              }).length /
+                users.length) *
+              100
+            ).toFixed(1)
+          : 0,
+      },
+      stores: {
+        total: stores.length,
+        activeVendors: stores.filter(
+          (s) => Array.isArray(s.vendorIds) && s.vendorIds.length > 0
+        ).length,
+      },
+      events: {
+        upcoming: events.filter((e) => new Date(e.date) > new Date()).length,
+        active: events.filter((e) => e.status === "active").length,
+      },
+      products: {
+        total: products.length,
+        inStock: products.filter((p) => (p.inStock || 0) > 0).length,
+        lowStock: products.filter((p) => (p.inStock || 0) > 0 && p.inStock < 10)
+          .length,
+      },
+    }),
+    [users, stores, events, products]
+  );
 
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-};
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount);
+  };
   // Memoized categories
-  const categories = useMemo(() => 
-    Array.from(new Set(products.map(product => product.category))),
+  const categories = useMemo(
+    () => Array.from(new Set(products.map((product) => product.category))),
     [products]
   );
 
@@ -200,10 +237,9 @@ const formatCurrency = (amount: number) => {
   if (role !== "admin") {
     router.push("/unauthorized");
     return null;
-  } 
- 
+  }
 
-    return (
+  return (
     <div className="flex h-screen bg-gray-100">
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
@@ -212,57 +248,78 @@ const formatCurrency = (amount: number) => {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total Users
+                  </CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.users.total}</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.users.total}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     +{analytics.users.growth}% from last month
                   </p>
                 </CardContent>
               </Card>
-    
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Vendors</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Active Vendors
+                  </CardTitle>
                   <Store className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.stores.activeVendors}</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.stores.activeVendors}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {((analytics.stores.activeVendors / analytics.stores.total) * 100).toFixed(1)}% of total stores
+                    {(
+                      (analytics.stores.activeVendors /
+                        analytics.stores.total) *
+                      100
+                    ).toFixed(1)}
+                    % of total stores
                   </p>
                 </CardContent>
               </Card>
-    
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Upcoming Events
+                  </CardTitle>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.events.upcoming}</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.events.upcoming}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {analytics.events.active} currently active
                   </p>
                 </CardContent>
               </Card>
-    
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total Products
+                  </CardTitle>
                   <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.products.total}</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.products.total}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {analytics.products.inStock} in stock
                   </p>
                 </CardContent>
               </Card>
             </div>
-    
+
             {/* Main Content Tabs */}
             <div className="mt-8">
               <Tabs defaultValue="users" className="w-full">
@@ -272,7 +329,7 @@ const formatCurrency = (amount: number) => {
                   <TabsTrigger value="events">Events</TabsTrigger>
                   <TabsTrigger value="products">Products</TabsTrigger>
                 </TabsList>
-    
+
                 {/* Users Tab */}
                 <TabsContent value="users">
                   <Card>
@@ -291,7 +348,10 @@ const formatCurrency = (amount: number) => {
                             />
                           </div>
                           <div className="w-48">
-                            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+                            <Select
+                              value={selectedFilter}
+                              onValueChange={setSelectedFilter}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder="Filter by role" />
                               </SelectTrigger>
@@ -299,12 +359,14 @@ const formatCurrency = (amount: number) => {
                                 <SelectItem value="all">All Roles</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
                                 <SelectItem value="vendor">Vendor</SelectItem>
-                                <SelectItem value="customer">Customer</SelectItem>
+                                <SelectItem value="customer">
+                                  Customer
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
-    
+
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -323,7 +385,9 @@ const formatCurrency = (amount: number) => {
                                 <TableCell>{user.role}</TableCell>
                                 <TableCell>{user.credits}</TableCell>
                                 <TableCell>
-                                  {new Date(user.createdAt).toLocaleDateString()}
+                                  {new Date(
+                                    user.createdAt
+                                  ).toLocaleDateString()}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -333,7 +397,7 @@ const formatCurrency = (amount: number) => {
                     </CardContent>
                   </Card>
                 </TabsContent>
-    
+
                 {/* Vendors Tab */}
                 <TabsContent value="vendors">
                   <Card>
@@ -350,7 +414,7 @@ const formatCurrency = (amount: number) => {
                             className="w-full"
                           />
                         </div>
-    
+
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -365,9 +429,13 @@ const formatCurrency = (amount: number) => {
                               <TableRow key={store.id}>
                                 <TableCell>{store.name}</TableCell>
                                 <TableCell>{store.description}</TableCell>
-                                <TableCell>{store.vendorIds?.length || 0}</TableCell>
                                 <TableCell>
-                                  {new Date(store.createdAt).toLocaleDateString()}
+                                  {store.vendorIds?.length || 0}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(
+                                    store.createdAt
+                                  ).toLocaleDateString()}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -377,7 +445,7 @@ const formatCurrency = (amount: number) => {
                     </CardContent>
                   </Card>
                 </TabsContent>
-    
+
                 {/* Events Tab */}
                 <TabsContent value="events">
                   <Card>
@@ -395,20 +463,27 @@ const formatCurrency = (amount: number) => {
                             />
                           </div>
                           <div className="w-48">
-                            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+                            <Select
+                              value={selectedFilter}
+                              onValueChange={setSelectedFilter}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder="Filter by status" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="all">All Status</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                <SelectItem value="completed">
+                                  Completed
+                                </SelectItem>
+                                <SelectItem value="cancelled">
+                                  Cancelled
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
-    
+
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -429,7 +504,8 @@ const formatCurrency = (amount: number) => {
                                 <TableCell>{event.location}</TableCell>
                                 <TableCell>{event.status}</TableCell>
                                 <TableCell>
-                                  {event.schedule.startTime} - {event.schedule.endTime}
+                                  {event.schedule.startTime} -{" "}
+                                  {event.schedule.endTime}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -439,7 +515,7 @@ const formatCurrency = (amount: number) => {
                     </CardContent>
                   </Card>
                 </TabsContent>
-    
+
                 {/* Products Tab */}
                 <TabsContent value="products">
                   <Card>
@@ -457,12 +533,17 @@ const formatCurrency = (amount: number) => {
                             />
                           </div>
                           <div className="w-48">
-                            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+                            <Select
+                              value={selectedFilter}
+                              onValueChange={setSelectedFilter}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder="Filter by category" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="all">All Categories</SelectItem>
+                                <SelectItem value="all">
+                                  All Categories
+                                </SelectItem>
                                 {categories.map((category) => (
                                   <SelectItem key={category} value={category}>
                                     {category}
@@ -487,20 +568,28 @@ const formatCurrency = (amount: number) => {
                           <TableBody>
                             {filterData(products, "products").map((product) => (
                               <TableRow key={product.id}>
-                                <TableCell>{product.name || 'N/A'}</TableCell>
-                                <TableCell>{product.category || 'N/A'}</TableCell>
-                                <TableCell>{formatCurrency(product.price)}</TableCell>
-                                <TableCell>{formatCurrency(product.cost)}</TableCell>
+                                <TableCell>{product.name || "N/A"}</TableCell>
                                 <TableCell>
-                                  <span className={`${
-                                    (product.inStock || 0) < 10 ? "text-red-500" :
-                                    (product.inStock || 0) < 50 ? "text-yellow-500" :
-                                    "text-green-500"
-                                  }`}>
+                                  {product.category || "N/A"}
+                                </TableCell>
+                                <TableCell>R{product.price}</TableCell>
+                                <TableCell>R{product.cost}</TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`${
+                                      (product.inStock || 0) < 10
+                                        ? "text-red-500"
+                                        : (product.inStock || 0) < 50
+                                        ? "text-yellow-500"
+                                        : "text-green-500"
+                                    }`}
+                                  >
                                     {product.inStock || 0}
                                   </span>
                                 </TableCell>
-                                <TableCell>{formatDate(product.createdAt)}</TableCell>
+                                <TableCell>
+                                  {formatDate(product.createdAt)}
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
