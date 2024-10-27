@@ -19,7 +19,8 @@ import {
   Package,
   Store,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from "lucide-react";
 import { useAuth } from "@/hooks/auth";
 import Spinner from "@/components/Spinner";
@@ -97,7 +98,13 @@ const VendorDashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
-  const { user, role, loading } = useAuth() as { user: User | null; role: string | null; loading: boolean };
+  const { user, role, loading, signOut } = useAuth() as { 
+    user: User | null; 
+    role: string | null; 
+    loading: boolean;
+    signOut: () => Promise<void>;
+  };
+
 
   useEffect(() => {
     if (!user?.id || role !== "vendor") {
@@ -241,11 +248,41 @@ const VendorDashboard = () => {
     router.push("/unauthorized");
     return null;
   }
-
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.push('/'); // Redirect to home page after logout
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setError('Failed to logout. Please try again.');
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Add header with logout button */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                {user?.email}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -520,7 +557,7 @@ const VendorDashboard = () => {
                                     </span>
                                   </div>
                                 </div>
-                                <div className="mt-4 space-x-2">
+                                {/* <div className="mt-4 space-x-2">
                                   <Button 
                                     variant="outline" 
                                     size="sm"
@@ -535,7 +572,7 @@ const VendorDashboard = () => {
                                   >
                                     Edit Store
                                   </Button>
-                                </div>
+                                </div> */}
                               </CardContent>
                             </Card>
                           ))}
