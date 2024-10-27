@@ -548,7 +548,7 @@ const VendorDashboard = () => {
                                 <Store className="h-12 w-12 text-muted-foreground" />
                                 <h3 className="text-lg font-medium">No Stores Found</h3>
                                 <p className="text-sm text-muted-foreground">
-                                  You haven't created any stores yet. Get started by adding your first store.
+                                  You haven&apos;t created any stores yet. Get started by adding your first store.
                                 </p>
                                 <Button>Create Store</Button>
                               </div>
