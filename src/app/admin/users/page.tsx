@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/auth";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -70,7 +72,13 @@ export default function UserTable() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const usersPerPage = 20;
   const [totalPages, setTotalPages] = useState(1);
+  const { user, role } = useAuth();
+  const route = useRouter();
 
+  if (role !== "admin") {
+    route.push("/");
+  }
+  
   useEffect(() => {
     fetchUsers();
   }, []);

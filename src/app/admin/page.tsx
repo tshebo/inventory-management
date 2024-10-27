@@ -41,23 +41,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Type definitions for better type safety
+interface Schedule {
+  startTime: string;
+  endTime: string;
+}
+
+interface Event {
+  id: string;
+  name: string;
+  date: Date | string;
+  location: string;
+  status: string;
+  schedule?: Schedule;
+}
+
 // Function to format date
 const formatDate = (date: any) => {
-  return new Date(date).toLocaleDateString(); // Adjust the format as needed
+  return new Date(date).toLocaleDateString();
 };
 
 export default function AdminDashboard() {
-  // State for data with proper typing
-  const [users, setUsers] = useState<any[]>([]); // Specify the type as any[]
+  // State with proper typing
+  const [users, setUsers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<Event[]>([]); // Now properly typed
 
-  // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
-
-  // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -207,12 +219,20 @@ export default function AdminDashboard() {
     [users, stores, events, products]
   );
 
+  const formatSchedule = (event: Event) => {
+    if (!event.schedule) return "No schedule";
+    return `${event.schedule.startTime || "TBD"} - ${
+      event.schedule.endTime || "TBD"
+    }`;
+  };
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-ZA", {
       style: "currency",
-      currency: "USD",
+      currency: "ZAR",
     }).format(amount);
   };
+
   // Memoized categories
   const categories = useMemo(
     () => Array.from(new Set(products.map((product) => product.category))),
@@ -498,15 +518,10 @@ export default function AdminDashboard() {
                             {filterData(events, "events").map((event) => (
                               <TableRow key={event.id}>
                                 <TableCell>{event.name}</TableCell>
-                                <TableCell>
-                                  {new Date(event.date).toLocaleDateString()}
-                                </TableCell>
+                                <TableCell>{formatDate(event.date)}</TableCell>
                                 <TableCell>{event.location}</TableCell>
                                 <TableCell>{event.status}</TableCell>
-                                <TableCell>
-                                  {event.schedule.startTime} -{" "}
-                                  {event.schedule.endTime}
-                                </TableCell>
+                                <TableCell>{formatSchedule(event)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -572,8 +587,12 @@ export default function AdminDashboard() {
                                 <TableCell>
                                   {product.category || "N/A"}
                                 </TableCell>
-                                <TableCell>R{product.price}</TableCell>
-                                <TableCell>R{product.cost}</TableCell>
+                                <TableCell>
+                                  {formatCurrency(product.price)}
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrency(product.cost)}
+                                </TableCell>
                                 <TableCell>
                                   <span
                                     className={`${

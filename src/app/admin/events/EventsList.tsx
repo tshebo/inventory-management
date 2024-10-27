@@ -1,12 +1,18 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { format, parseISO, isPast } from "date-fns"
-import { collection, getDocs, query, orderBy } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { Loader2, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { format, parseISO, isPast } from "date-fns";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Loader2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -14,73 +20,147 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/tooltip";
+import EditEventModal from "./EditEvents";
 
 interface Event {
-  id: string
-  createdAt: string
-  date: string
-  description: string
-  endDate: string
-  isMultiDay: boolean
-  location: string
-  name: string
+  id: string;
+  createdAt: string | Date | Timestamp;
+  date: string | Date | Timestamp;
+  description: string;
+  endDate: string | Date | Timestamp;
+  isMultiDay: boolean;
+  location: string;
+  name: string;
   schedule: {
-    endTime: string
-    startTime: string
-  }
-  status: "active" | "cancelled" | "completed"
+    endTime: string;
+    startTime: string;
+  };
+  status: "active" | "cancelled" | "completed";
 }
 
-export default function EventTable() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+// Helper function to safely format dates
+const formatDate = (
+  date: string | Date | Timestamp | undefined,
+  pattern: string
+) => {
+  if (!date) return "N/A";
 
-  useEffect(() => {
-    async function fetchEvents() {
+  try {
+    // Handle Firestore Timestamp
+    if (date instanceof Timestamp) {
+      return format(date.toDate(), pattern);
+    }
+
+    // Handle Date objects
+    if (date instanceof Date) {
+      return format(date, pattern);
+    }
+
+    // Handle ISO strings
+    if (typeof date === "string") {
+      // Try parsing as ISO first
       try {
-        setIsLoading(true)
-        setError(null)
-        
-        const eventsRef = collection(db, "events")
-        const q = query(eventsRef, orderBy("date", "desc"))
-        const querySnapshot = await getDocs(q)
-        
-        const fetchedEvents = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Event[]
-
-        setEvents(fetchedEvents)
-      } catch (err) {
-        console.error("Error fetching events:", err)
-        setError("Failed to load events. Please try again later.")
-      } finally {
-        setIsLoading(false)
+        return format(parseISO(date), pattern);
+      } catch {
+        // If ISO parsing fails, try creating a new Date
+        return format(new Date(date), pattern);
       }
     }
 
-    fetchEvents()
-  }, [])
-
-  const getStatusColor = (status: Event['status'], date: string, endDate: string) => {
-    if (status === 'cancelled') return 'bg-red-500'
-    if (status === 'completed' || isPast(new Date(endDate))) return 'bg-gray-500'
-    return 'bg-green-500'
+    return "Invalid date";
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "Invalid date";
   }
+};
 
-  const getStatusText = (status: Event['status'], date: string, endDate: string) => {
-    if (status === 'cancelled') return 'Cancelled'
-    if (status === 'completed' || isPast(new Date(endDate))) return 'Past'
-    return 'Upcoming'
+export default function EventTable() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function fetchEvents() {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const eventsRef = collection(db, "events");
+      const q = query(eventsRef, orderBy("date", "desc"));
+      const querySnapshot = await getDocs(q);
+
+      const fetchedEvents = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        // Ensure createdAt is properly handled if it's a Timestamp
+        createdAt:
+          doc.data().createdAt instanceof Timestamp
+            ? doc.data().createdAt.toDate().toISOString()
+            : doc.data().createdAt,
+        // Convert date fields if they're Timestamps
+        date:
+          doc.data().date instanceof Timestamp
+            ? doc.data().date.toDate().toISOString()
+            : doc.data().date,
+        endDate:
+          doc.data().endDate instanceof Timestamp
+            ? doc.data().endDate.toDate().toISOString()
+            : doc.data().endDate,
+      })) as Event[];
+
+      setEvents(fetchedEvents);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError("Failed to load events. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
   }
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const getStatusColor = (
+    status: Event["status"],
+    date: Event["date"],
+    endDate: Event["endDate"]
+  ) => {
+    if (status === "cancelled") return "bg-red-500";
+
+    const endDateTime =
+      endDate instanceof Date
+        ? endDate
+        : endDate instanceof Timestamp
+        ? endDate.toDate()
+        : new Date(endDate);
+
+    if (status === "completed" || isPast(endDateTime)) return "bg-gray-500";
+    return "bg-green-500";
+  };
+
+  const getStatusText = (
+    status: Event["status"],
+    date: Event["date"],
+    endDate: Event["endDate"]
+  ) => {
+    if (status === "cancelled") return "Cancelled";
+
+    const endDateTime =
+      endDate instanceof Date
+        ? endDate
+        : endDate instanceof Timestamp
+        ? endDate.toDate()
+        : new Date(endDate);
+
+    if (status === "completed" || isPast(endDateTime)) return "Past";
+    return "Upcoming";
+  };
 
   if (isLoading) {
     return (
@@ -88,7 +168,7 @@ export default function EventTable() {
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading events...</span>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -101,7 +181,7 @@ export default function EventTable() {
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -145,30 +225,45 @@ export default function EventTable() {
                       <Tooltip>
                         <TooltipTrigger>
                           <span
-                            className={`h-2 w-2 rounded-full inline-block mr-2 ${getStatusColor(event.status, event.date, event.endDate)}`}
+                            className={`h-2 w-2 rounded-full inline-block mr-2 ${getStatusColor(
+                              event.status,
+                              event.date,
+                              event.endDate
+                            )}`}
                           ></span>
-                          {getStatusText(event.status, event.date, event.endDate)}
+                          {getStatusText(
+                            event.status,
+                            event.date,
+                            event.endDate
+                          )}
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Created: {format(parseISO(event.createdAt), "MMM d, yyyy HH:mm")}</p>
+                          <p>
+                            Created:{" "}
+                            {formatDate(event.createdAt, "MMM d, yyyy HH:mm")}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </TableCell>
                   <TableCell className="font-medium">{event.name}</TableCell>
                   <TableCell>
-                    {format(new Date(event.date), "MMM d, yyyy")}
-                    {event.isMultiDay && ` - ${format(new Date(event.endDate), "MMM d, yyyy")}`}
+                    {formatDate(event.date, "MMM d, yyyy")}
+                    {event.isMultiDay &&
+                      ` - ${formatDate(event.endDate, "MMM d, yyyy")}`}
                   </TableCell>
                   <TableCell>
-                    {event.schedule.startTime} - {event.schedule.endTime}
+                    {event.schedule?.startTime || "N/A"} -{" "}
+                    {event.schedule?.endTime || "N/A"}
                   </TableCell>
                   <TableCell>{event.location}</TableCell>
                   <TableCell>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
-                          <span className="truncate block max-w-[200px]">{event.description}</span>
+                          <span className="truncate block max-w-[200px]">
+                            {event.description}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{event.description}</p>
@@ -180,9 +275,10 @@ export default function EventTable() {
                     <Button variant="ghost" size="sm">
                       View
                     </Button>
-                    <Button variant="ghost" size="sm">
-                      Edit
-                    </Button>
+                    <EditEventModal
+                      event={event}
+                      onEventUpdated={() => fetchEvents()}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -191,5 +287,5 @@ export default function EventTable() {
         </div>
       )}
     </div>
-  )
+  );
 }
