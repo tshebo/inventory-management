@@ -324,7 +324,7 @@ export default function ProductForm() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Bought For</Label>
+                <Label htmlFor="price">Bought For(Stock)</Label>
                 <Input
                   id="price"
                   type="number"
@@ -341,7 +341,7 @@ export default function ProductForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cost">Sell For</Label>
+                <Label htmlFor="cost">Sell For(each)</Label>
                 <Input
                   id="cost"
                   type="number"
