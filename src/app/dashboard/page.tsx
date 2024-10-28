@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useEffect, useMemo } from "react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; 
 import { useRouter } from "next/navigation";
 import {
   collection,
@@ -15,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Calendar,
   Package,
   Store,
   DollarSign,
@@ -39,7 +39,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  inStock: number;
+  storeId: string;
+  storeName: string;
+  category: string;
+  cost: number;
+  imageUrl: string;
+}
 
 interface StoreData {
   id: string;
@@ -49,33 +61,6 @@ interface StoreData {
   createdAt: string;
   createdBy: string;
   vendorIds: string[];
-}
-
-interface Product {
-  id: string;
-  name: string;
-  storeName: string;
-  category: string;
-  price: number;
-  inStock: number;
-  storeId: string;
-}
-
-interface EventSchedule {
-  startTime: string;
-  endTime: string;
-}
-
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  date: string;
-  schedule: EventSchedule;
-  location: string;
-  isMultiDay?: boolean;
-  endDate?: string;
-  vendors?: string[]; // Changed from participating to vendors
 }
 
 interface User {
@@ -90,7 +75,6 @@ interface User {
 
 const VendorDashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
   const [stores, setStores] = useState<StoreData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
@@ -98,13 +82,12 @@ const VendorDashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
-  const { user, role, loading, signOut } = useAuth() as { 
-    user: User | null; 
-    role: string | null; 
+  const { user, role, loading, signOut } = useAuth() as {
+    user: User | null;
+    role: string | null;
     loading: boolean;
     signOut: () => Promise<void>;
   };
-
 
   useEffect(() => {
     if (!user?.id || role !== "vendor") {
@@ -120,7 +103,7 @@ const VendorDashboard = () => {
         collection(db, "stores"),
         where("vendorIds", "array-contains", user.id)
       );
-      
+
       const storesUnsubscribe = onSnapshot(storesQuery, (snapshot) => {
         const storesData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -129,49 +112,26 @@ const VendorDashboard = () => {
         } as StoreData));
         setStores(storesData);
 
-        // Only fetch products if there are stores
-        if (storesData.length > 0) {
-          const storeIds = storesData.map(store => store.id);
-          const productsQuery = query(
-            collection(db, "products"),
-            where("storeId", "in", storeIds)
-          );
+        // Fetch products for the vendor's stores
+        const storeIds = storesData.map(store => store.id);
+        const productsQuery = query(
+          collection(db, "products"),
+          where("storeId", "in", storeIds)
+        );
 
-          const productsUnsubscribe = onSnapshot(productsQuery, (snapshot) => {
-            const productsData = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as Product));
-            setProducts(productsData);
-          });
+        const productsUnsubscribe = onSnapshot(productsQuery, (snapshot) => {
+          const productsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            storeName: storesData.find(store => store.id === doc.data().storeId)?.name
+          } as Product));
+          setProducts(productsData);
+        });
 
-          unsubscribers.push(productsUnsubscribe);
-        }
+        unsubscribers.push(productsUnsubscribe);
       });
 
       unsubscribers.push(storesUnsubscribe);
-
-      // Fetch upcoming events
-      const now = Timestamp.now();
-      const eventsQuery = query(
-        collection(db, "events"),
-        where("date", ">=", now),
-        orderBy("date")
-      );
-
-      const eventsUnsubscribe = onSnapshot(eventsQuery, (snapshot) => {
-        const eventsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date?.toDate?.()?.toISOString() || new Date().toISOString(),
-          endDate: doc.data().endDate?.toDate?.()?.toISOString(),
-          schedule: doc.data().schedule || { startTime: "", endTime: "" },
-          vendors: doc.data().vendors || [] // Changed from participating to vendors
-        } as Event));
-        setEvents(eventsData);
-      });
-
-      unsubscribers.push(eventsUnsubscribe);
 
       setIsLoading(false);
     } catch (err) {
@@ -193,14 +153,8 @@ const VendorDashboard = () => {
       lowStock: products.filter(p => p.inStock < 10).length,
       outOfStock: products.filter(p => p.inStock === 0).length,
       revenue: products.reduce((acc, p) => acc + (p.price * p.inStock), 0)
-    },
-    events: {
-      upcoming: events.length,
-      participating: events.filter(event => 
-        stores.some(store => event.vendors?.includes(store.id))
-      ).length
     }
-  }), [stores, products, events]);
+  }), [stores, products]);
 
   const filterData = useMemo(() => (data: any[], type: string) => {
     if (!data) return [];
@@ -221,18 +175,11 @@ const VendorDashboard = () => {
         case "products":
           filtered = filtered.filter(product => product.category === selectedFilter);
           break;
-        case "events":
-          filtered = filtered.filter(event => 
-            selectedFilter === "participating" 
-              ? stores.some(store => event.vendors?.includes(store.id))
-              : !stores.some(store => event.vendors?.includes(store.id))
-          );
-          break;
       }
     }
 
     return filtered;
-  }, [searchTerm, selectedFilter, stores]);
+  }, [searchTerm, selectedFilter]);
 
   if (loading || isLoading) return <Spinner />;
   if (error) {
@@ -248,6 +195,7 @@ const VendorDashboard = () => {
     router.push("/unauthorized");
     return null;
   }
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -260,29 +208,28 @@ const VendorDashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Add header with logout button */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                {user?.email}
-              </span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleLogout}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-600">
+                  {user?.email}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -329,26 +276,12 @@ const VendorDashboard = () => {
                   </p>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Events</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{analytics.events.upcoming}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Participating in {analytics.events.participating} events
-                  </p>
-                </CardContent>
-              </Card>
             </div>
 
             <div className="mt-8">
               <Tabs defaultValue="products" className="w-full">
                 <TabsList>
                   <TabsTrigger value="products">Products</TabsTrigger>
-                  <TabsTrigger value="events">Events</TabsTrigger>
                   <TabsTrigger value="stores">Stores</TabsTrigger>
                 </TabsList>
 
@@ -431,85 +364,13 @@ const VendorDashboard = () => {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="events">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Event Management</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-4">
-                          <Input
-                            placeholder="Search events"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Select
-                            value={selectedFilter}
-                            onValueChange={setSelectedFilter}
-                          >
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Filter events" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Events</SelectItem>
-                              <SelectItem value="participating">Participating</SelectItem>
-                              <SelectItem value="available">Available</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Location</TableHead>
-                              <TableHead>Schedule</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filterData(events, "events").map((event) => (
-                              <TableRow key={event.id}>
-                                <TableCell>{event.name}</TableCell>
-                                <TableCell>
-                                  {new Date(event.date).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell>{event.location}</TableCell>
-                                <TableCell>
-                                  {`${event.schedule.startTime} - ${event.schedule.endTime}`}
-                                </TableCell>
-                                <TableCell>
-                                  {stores.some(store => 
-                                    event.participating?.includes(store.id)
-                                  ) ? "Participating" : "Available"}
-                                </TableCell>
-                                <TableCell>
-                                  <Button variant="outline" size="sm">
-                                    {stores.some(store => 
-                                      event.participating?.includes(store.id)
-                                    ) ? "Manage" : "Join"}
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
                 <TabsContent value="stores">
                   <Card>
                     <CardHeader>
                       <CardTitle>Store Management</CardTitle>
                     </CardHeader>
                     <CardContent>
-                    <div className="space-y-4">
+                      <div className="space-y-4">
                         <div className="flex items-center space-x-4">
                           <Input
                             placeholder="Search stores"
@@ -557,22 +418,6 @@ const VendorDashboard = () => {
                                     </span>
                                   </div>
                                 </div>
-                                {/* <div className="mt-4 space-x-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => router.push(`/stores/${store.id}`)}
-                                  >
-                                    View Details
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => router.push(`/stores/${store.id}/edit`)}
-                                  >
-                                    Edit Store
-                                  </Button>
-                                </div> */}
                               </CardContent>
                             </Card>
                           ))}
