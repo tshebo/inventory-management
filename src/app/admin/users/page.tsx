@@ -75,10 +75,10 @@ export default function UserTable() {
   const { user, role } = useAuth();
   const route = useRouter();
 
-  if (role !== "admin") {
+  if (role === "vendor" || role === "customer") {
     route.push("/");
   }
-  
+
   useEffect(() => {
     fetchUsers();
   }, []);
