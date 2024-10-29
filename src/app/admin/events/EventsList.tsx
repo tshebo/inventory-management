@@ -7,11 +7,13 @@ import {
   collection,
   getDocs,
   query,
+  doc,
   orderBy,
   Timestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -144,6 +146,19 @@ export default function EventTable() {
     return "bg-green-500";
   };
 
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      await deleteDoc(doc(db, "events", eventId));
+      setEvents((prevEvents) =>
+        prevEvents.filter((event) => event.id !== eventId)
+      );
+      console.log("Event deleted successfully");
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      setError("Failed to delete event. Please try again later.");
+    }
+  };
+
   const getStatusText = (
     status: Event["status"],
     date: Event["date"],
@@ -272,8 +287,12 @@ export default function EventTable() {
                     </TooltipProvider>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      View
+                  <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteEvent(event.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                     <EditEventModal
                       event={event}

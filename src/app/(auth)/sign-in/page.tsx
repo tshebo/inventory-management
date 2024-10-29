@@ -6,7 +6,6 @@ import LoginPage from "@/components/Login";
 import { useAuth } from "@/hooks/auth";
 import Spinner from "@/components/Spinner";
 import { Loader2 } from "lucide-react";
-
 export default function LoginPageWrapper() {
   // Renamed for clarity and convention
   const { user, role, loading } = useAuth();

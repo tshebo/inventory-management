@@ -50,6 +50,8 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  getDoc,
+  setDoc,
 } from "firebase/firestore";
 import { getAuth, deleteUser } from "firebase/auth";
 import { db } from "@/lib/firebase";
@@ -133,11 +135,38 @@ export default function UserTable() {
       await updateDoc(userRef, {
         role: newRole,
       });
+
+      // Add to the "vendors" collection if role is changed to "vendor"
+      if (newRole === "vendor") {
+        await addToVendorsCollection(userId);
+      }
+
       await fetchUsers(); // Refresh the user list
       toast.success(`User role updated successfully`);
     } catch (error) {
       console.error("Error updating user role:", error);
       toast.error("Failed to update user role");
+    }
+  };
+
+  // Function to add the user to the "vendors" collection
+  const addToVendorsCollection = async (userId: string) => {
+    try {
+      const userSnapshot = await getDoc(doc(db, "users", userId));
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.data();
+        await setDoc(doc(db, "vendors", userId), {
+          ...userData,
+          assignedAt: new Date(), // Optional: track when they were assigned the vendor role
+        });
+        toast.success("User added to the vendors collection");
+      } else {
+        console.error("User data not found when adding to vendors collection.");
+        toast.error("Failed to add user to vendors collection");
+      }
+    } catch (error) {
+      console.error("Error adding user to vendors collection:", error);
+      toast.error("Failed to add user to vendors collection");
     }
   };
 

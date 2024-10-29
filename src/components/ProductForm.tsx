@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { collection, getDocs, addDoc, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+} from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, auth, storage } from "@/lib/firebase";
 import { useSearchParams } from "next/navigation";
@@ -56,10 +64,10 @@ const CATEGORIES = [
   "Electronics",
   "Clothing",
   "Food",
-  "Books",
+  "Beverages",
   "Home & Garden",
-  "Toys",
   "Sports",
+  "Books",
   "Other",
 ];
 
@@ -85,7 +93,9 @@ export default function ProductForm() {
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
+    {}
+  );
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 
   // Fetch all stores and find the pre-selected store if storeId is provided
@@ -210,7 +220,6 @@ export default function ProductForm() {
     };
     reader.readAsDataURL(file);
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -223,6 +232,7 @@ export default function ProductForm() {
       if (!currentUser)
         throw new Error("You must be logged in to add a product");
 
+      // Upload image
       let imageUrl = "";
       if (formData.imageFile) {
         const imageRef = ref(
@@ -233,6 +243,7 @@ export default function ProductForm() {
         imageUrl = await getDownloadURL(uploadResult.ref);
       }
 
+      // Prepare product data
       const productData = {
         name: formData.name.trim(),
         category: formData.category,
@@ -245,16 +256,39 @@ export default function ProductForm() {
         createdAt: new Date().toISOString(),
       };
 
-      await addDoc(collection(db, "products"), productData);
+      // Add product to products collection
+      const productRef = await addDoc(collection(db, "products"), productData);
+
+      // Update store document with new product reference
+      const storeRef = doc(db, "stores", formData.storeId);
+      const storeDoc = await getDoc(storeRef);
+
+      if (storeDoc.exists()) {
+        // Add product reference to store's products array
+        await updateDoc(storeRef, {
+          products: arrayUnion({
+            productId: productRef.id,
+            name: productData.name,
+            price: productData.price,
+            cost: productData.cost,
+            imageUrl: productData.imageUrl,
+            category: productData.category,
+            inStock: productData.inStock,
+            createdAt: productData.createdAt,
+          }),
+        });
+      }
+
       toast.success("Product added successfully");
 
+      // Reset form
       setFormData({
         name: "",
         category: "",
         price: "",
         cost: "",
         inStock: "",
-        storeId: "",
+        storeId: storeId || "", // Maintain storeId if it was pre-selected
         imageFile: null,
       });
       setImagePreview(null);
@@ -351,7 +385,9 @@ export default function ProductForm() {
                   className={validationErrors.cost ? "border-red-500" : ""}
                 />
                 {validationErrors.cost && (
-                  <p className="text-sm text-red-500">{validationErrors.cost}</p>
+                  <p className="text-sm text-red-500">
+                    {validationErrors.cost}
+                  </p>
                 )}
               </div>
             </div>
@@ -407,7 +443,7 @@ export default function ProductForm() {
             </div>
 
             <div className="space-y-2">
-            <Label htmlFor="storeId">Store</Label>
+              <Label htmlFor="storeId">Store</Label>
               <Select
                 value={formData.storeId}
                 onValueChange={(value) => handleInputChange("storeId", value)}

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import Spinner from "@/components/Spinner";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 type FormInputs = {
   email: string;
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const {
     register,
     handleSubmit,
@@ -118,6 +120,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   {...register("password", {
                     required: "Password is required",
+                    minLength: 6,
                   })}
                 />
                 <button
@@ -146,12 +149,13 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col items-center justify-center space-y-2">
-          <Link
-            href="/forgot-password"
+          <button
+            type="button"
+            onClick={() => setIsForgotPasswordOpen(true)}
             className="text-sm text-primary hover:text-primary/90"
           >
             Forgot password?
-          </Link>
+          </button>
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link
@@ -164,6 +168,10 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
       <Toaster position="top-center" />
+      <ForgotPasswordModal
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
     </div>
   );
 }

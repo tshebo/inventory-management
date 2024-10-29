@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Store, Plus, Eye, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
+import AddProductModal from "@/components/AddProductModal"; // Adjust the import path as needed
 
 interface StoreData {
   id: string;
@@ -27,6 +28,8 @@ export default function StoreGallery() {
   const [stores, setStores] = useState<StoreData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedStore, setSelectedStore] = useState<StoreData | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -53,6 +56,10 @@ export default function StoreGallery() {
     fetchStores();
   }, []);
 
+  const handleAddProducts = (store: StoreData) => {
+    setSelectedStore(store);
+    setIsProductModalOpen(true);
+  };
   const handleCreateStore = () => {
     router.push("/admin/stores/add");
   };
@@ -121,20 +128,11 @@ export default function StoreGallery() {
                 </CardDescription>
               </CardHeader>
               <CardFooter className="flex justify-between mt-auto">
-                <Button variant="outline"
-                
-                onClick={() => {
-                  // Assuming you're using Next.js
-                  router.push(`/admin/stores/${store.id}`);
-                }}
-                  className="flex items-center">
+                <Button variant="outline" className="flex items-center">
                   <Eye className="mr-2 h-4 w-4" /> View Details
                 </Button>
                 <Button
-                  onClick={() => {
-                    // Assuming you're using Next.js
-                    router.push(`/admin/products/add`);
-                  }}
+                  onClick={() => handleAddProducts(store)}
                   className="flex items-center"
                 >
                   <ShoppingBag className="mr-2 h-4 w-4" /> Add Products
@@ -143,6 +141,18 @@ export default function StoreGallery() {
             </Card>
           ))}
         </div>
+      )}
+
+      {selectedStore && (
+        <AddProductModal
+          isOpen={isProductModalOpen}
+          onClose={() => {
+            setIsProductModalOpen(false);
+            setSelectedStore(null);
+          }}
+          storeId={selectedStore.id}
+          storeName={selectedStore.name}
+        />
       )}
     </div>
   );

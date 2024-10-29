@@ -1,27 +1,15 @@
-'use client'
+// app/vendor/dashboard/VendorDashboard.tsx
+"use client";
+
 import React, { useState, useEffect, useMemo } from "react";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; 
 import { useRouter } from "next/navigation";
-import {
-  collection,
-  query,
-  onSnapshot,
-  where,
-  orderBy,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Package,
-  Store,
-  DollarSign,
-  AlertCircle,
-  LogOut
-} from "lucide-react";
+import { Package, Store, DollarSign, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/auth";
 import Spinner from "@/components/Spinner";
 import {
@@ -39,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Product {
   id: string;
@@ -47,7 +36,7 @@ interface Product {
   price: number;
   inStock: number;
   storeId: string;
-  storeName: string;
+  storeName?: string;
   category: string;
   cost: number;
   imageUrl: string;
@@ -73,14 +62,13 @@ interface User {
   credits: number;
 }
 
-const VendorDashboard = () => {
+export default function VendorDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [stores, setStores] = useState<StoreData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const router = useRouter();
   const { user, role, loading, signOut } = useAuth() as {
     user: User | null;
@@ -105,92 +93,101 @@ const VendorDashboard = () => {
       );
 
       const storesUnsubscribe = onSnapshot(storesQuery, (snapshot) => {
-        const storesData = snapshot.docs.map(doc => ({
+        const storesData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-        } as StoreData));
+          createdAt:
+            doc.data().createdAt?.toDate?.()?.toISOString() ||
+            new Date().toISOString(),
+        })) as StoreData[];
         setStores(storesData);
 
-        // Fetch products for the vendor's stores
-        const storeIds = storesData.map(store => store.id);
-        const productsQuery = query(
-          collection(db, "products"),
-          where("storeId", "in", storeIds)
-        );
+        // Only fetch products if there are stores
+        if (storesData.length > 0) {
+          const storeIds = storesData.map((store) => store.id);
+          const productsQuery = query(
+            collection(db, "products"),
+            where("storeId", "in", storeIds)
+          );
 
-        const productsUnsubscribe = onSnapshot(productsQuery, (snapshot) => {
-          const productsData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            storeName: storesData.find(store => store.id === doc.data().storeId)?.name
-          } as Product));
-          setProducts(productsData);
-        });
+          const productsUnsubscribe = onSnapshot(productsQuery, (snapshot) => {
+            const productsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Product[];
+            setProducts(productsData);
+          });
 
-        unsubscribers.push(productsUnsubscribe);
+          unsubscribers.push(productsUnsubscribe);
+        }
       });
 
       unsubscribers.push(storesUnsubscribe);
-
       setIsLoading(false);
     } catch (err) {
       console.error("Error setting up subscriptions:", err);
-      setError((err as Error).message);
+      setError(err instanceof Error ? err.message : "An error occurred");
       setIsLoading(false);
     }
 
-    return () => unsubscribers.forEach(unsub => unsub());
+    return () => unsubscribers.forEach((unsub) => unsub());
   }, [user?.id, role]);
 
-  const analytics = useMemo(() => ({
-    stores: {
-      total: stores.length,
-      active: stores.filter(store => store.vendorIds?.length > 0).length
-    },
-    products: {
-      total: products.length,
-      lowStock: products.filter(p => p.inStock < 10).length,
-      outOfStock: products.filter(p => p.inStock === 0).length,
-      revenue: products.reduce((acc, p) => acc + (p.price * p.inStock), 0)
-    }
-  }), [stores, products]);
+  const analytics = useMemo(
+    () => ({
+      stores: {
+        total: stores.length,
+        active: stores.filter((store) => store.vendorIds?.length > 0).length,
+      },
+      products: {
+        total: products.length,
+        lowStock: products.filter((p) => p.inStock < 10).length,
+        outOfStock: products.filter((p) => p.inStock === 0).length,
+        revenue: products.reduce((acc, p) => acc + p.price * p.inStock, 0),
+        cost: products.reduce((acc, p) => acc + p.cost * p.inStock, 0),
+      },
+    }),
+    [stores, products]
+  );
 
-  const filterData = useMemo(() => (data: any[], type: string) => {
-    if (!data) return [];
+  const filterData = useMemo(
+    () => (data: any[], type: string) => {
+      if (!data) return [];
 
-    let filtered = [...data];
+      let filtered = [...data];
 
-    if (searchTerm) {
-      filtered = filtered.filter(item =>
-        Object.entries(item).some(([key, value]) =>
-          ["name", "description", "category"].includes(key) &&
-          value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
-
-    if (selectedFilter !== "all") {
-      switch (type) {
-        case "products":
-          filtered = filtered.filter(product => product.category === selectedFilter);
-          break;
+      if (searchTerm) {
+        filtered = filtered.filter((item) =>
+          Object.entries(item).some(
+            ([key, value]) =>
+              ["name", "description", "category"].includes(key) &&
+              value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        );
       }
-    }
 
-    return filtered;
-  }, [searchTerm, selectedFilter]);
+      if (selectedFilter !== "all" && type === "products") {
+        filtered = filtered.filter(
+          (product) => product.category === selectedFilter
+        );
+      }
+
+      return filtered;
+    },
+    [searchTerm, selectedFilter]
+  );
 
   if (loading || isLoading) return <Spinner />;
+
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
   }
+
   if (!user || role !== "vendor") {
     router.push("/unauthorized");
     return null;
@@ -199,12 +196,15 @@ const VendorDashboard = () => {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/'); // Redirect to home page after logout
+      router.push("/");
     } catch (error) {
-      console.error('Logout failed:', error);
-      setError('Failed to logout. Please try again.');
+      console.error("Logout failed:", error);
+      setError("Failed to logout. Please try again.");
     }
   };
+
+  console.log("Fetching stores:", stores);
+  console.log("Fetching products:", products);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -214,9 +214,7 @@ const VendorDashboard = () => {
             <div className="flex justify-between items-center">
               <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">
-                  {user?.email}
-                </span>
+                <span className="text-sm text-gray-600">{user?.email}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -230,16 +228,21 @@ const VendorDashboard = () => {
             </div>
           </div>
         </header>
+
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">My Stores</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    My Stores
+                  </CardTitle>
                   <Store className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.stores.total}</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.stores.total}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {analytics.stores.active} active stores
                   </p>
@@ -248,31 +251,40 @@ const VendorDashboard = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Products</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Products
+                  </CardTitle>
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.products.total}</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.products.total}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {analytics.products.lowStock} low stock items
+                    {analytics.products.lowStock} low stock ·{" "}
+                    {analytics.products.outOfStock} out of stock
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Potential Profit
+                  </CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {new Intl.NumberFormat('en-ZA', {
-                      style: 'currency',
-                      currency: 'ZAR'
-                    }).format(analytics.products.revenue)}
+                    {new Intl.NumberFormat("en-ZA", {
+                      style: "currency",
+                      currency: "ZAR",
+                    }).format(
+                      analytics.products.revenue - analytics.products.cost
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Potential revenue from current stock
+                    Based on current stock and prices
                   </p>
                 </CardContent>
               </Card>
@@ -307,8 +319,12 @@ const VendorDashboard = () => {
                               <SelectValue placeholder="Filter by category" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">All Categories</SelectItem>
-                              {Array.from(new Set(products.map(p => p.category))).map(category => (
+                              <SelectItem value="all">
+                                All Categories
+                              </SelectItem>
+                              {Array.from(
+                                new Set(products.map((p) => p.category))
+                              ).map((category) => (
                                 <SelectItem key={category} value={category}>
                                   {category}
                                 </SelectItem>
@@ -324,6 +340,7 @@ const VendorDashboard = () => {
                               <TableHead>Name</TableHead>
                               <TableHead>Store</TableHead>
                               <TableHead>Category</TableHead>
+                              <TableHead>Cost</TableHead>
                               <TableHead>Price</TableHead>
                               <TableHead>Stock</TableHead>
                               <TableHead>Actions</TableHead>
@@ -336,17 +353,27 @@ const VendorDashboard = () => {
                                 <TableCell>{product.storeName}</TableCell>
                                 <TableCell>{product.category}</TableCell>
                                 <TableCell>
-                                  {new Intl.NumberFormat('en-ZA', {
-                                    style: 'currency',
-                                    currency: 'ZAR'
+                                  {new Intl.NumberFormat("en-ZA", {
+                                    style: "currency",
+                                    currency: "ZAR",
+                                  }).format(product.cost)}
+                                </TableCell>
+                                <TableCell>
+                                  {new Intl.NumberFormat("en-ZA", {
+                                    style: "currency",
+                                    currency: "ZAR",
                                   }).format(product.price)}
                                 </TableCell>
                                 <TableCell>
-                                  <span className={`${
-                                    product.inStock === 0 ? "text-red-500" :
-                                    product.inStock < 10 ? "text-yellow-500" :
-                                    "text-green-500"
-                                  }`}>
+                                  <span
+                                    className={`${
+                                      product.inStock === 0
+                                        ? "text-red-500"
+                                        : product.inStock < 10
+                                        ? "text-yellow-500"
+                                        : "text-green-500"
+                                    }`}
+                                  >
                                     {product.inStock}
                                   </span>
                                 </TableCell>
@@ -382,11 +409,13 @@ const VendorDashboard = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {stores.map((store) => (
+                          {filterData(stores, "stores").map((store) => (
                             <Card key={store.id} className="overflow-hidden">
                               <div className="aspect-video relative">
                                 <img
-                                  src={store.imageUrl || "/api/placeholder/400/200"}
+                                  src={
+                                    store.imageUrl || "/api/placeholder/400/200"
+                                  }
                                   alt={store.name}
                                   className="object-cover w-full h-full"
                                 />
@@ -402,19 +431,36 @@ const VendorDashboard = () => {
                                   <div className="flex justify-between text-sm">
                                     <span>Products:</span>
                                     <span className="font-medium">
-                                      {products.filter(p => p.storeId === store.id).length}
+                                      {
+                                        products.filter(
+                                          (p) => p.storeId === store.id
+                                        ).length
+                                      }
                                     </span>
                                   </div>
                                   <div className="flex justify-between text-sm">
                                     <span>Created:</span>
                                     <span className="font-medium">
-                                      {new Date(store.createdAt).toLocaleDateString()}
+                                      {new Date(
+                                        store.createdAt
+                                      ).toLocaleDateString()}
                                     </span>
                                   </div>
                                   <div className="flex justify-between text-sm">
-                                    <span>Vendors:</span>
+                                    <span>Revenue:</span>
                                     <span className="font-medium">
-                                      {store.vendorIds?.length || 0}
+                                      {new Intl.NumberFormat("en-ZA", {
+                                        style: "currency",
+                                        currency: "ZAR",
+                                      }).format(
+                                        products
+                                          .filter((p) => p.storeId === store.id)
+                                          .reduce(
+                                            (acc, p) =>
+                                              acc + p.price * p.inStock,
+                                            0
+                                          )
+                                      )}
                                     </span>
                                   </div>
                                 </div>
@@ -428,9 +474,12 @@ const VendorDashboard = () => {
                             <CardContent>
                               <div className="flex flex-col items-center space-y-4">
                                 <Store className="h-12 w-12 text-muted-foreground" />
-                                <h3 className="text-lg font-medium">No Stores Found</h3>
+                                <h3 className="text-lg font-medium">
+                                  No Stores Found
+                                </h3>
                                 <p className="text-sm text-muted-foreground">
-                                  You haven&apos;t created any stores yet. Get started by adding your first store.
+                                  You haven&apos;t created any stores yet. Get
+                                  started by adding your first store.
                                 </p>
                                 <Button>Create Store</Button>
                               </div>
@@ -448,6 +497,4 @@ const VendorDashboard = () => {
       </div>
     </div>
   );
-};
-
-export default VendorDashboard;
+}
