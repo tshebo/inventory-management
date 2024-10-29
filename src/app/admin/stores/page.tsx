@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Store, Plus, Eye, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
-import AddProductModal from "@/components/AddProductModal"; // Adjust the import path as needed
+import AddProductModal from "@/components/AddProductModal";
 
 interface StoreData {
   id: string;

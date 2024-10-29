@@ -130,7 +130,6 @@ export default function StoreGallery() {
               <CardFooter className="flex justify-between mt-auto">
               <Button variant="outline"
                 onClick={() => { 
-                  console.log("View Details button clicked");
                   router.push(`/admin/stores/${store.id}`);
                 }}
                   className="flex items-center">
