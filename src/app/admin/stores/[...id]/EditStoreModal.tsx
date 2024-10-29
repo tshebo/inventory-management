@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
-import { doc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs, query, where, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
@@ -163,23 +163,22 @@ const EditStoreModal = ({ store, isOpen, onClose, onStoreUpdate }: EditStoreModa
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-
+  
     try {
       let newImageUrl = formData.imageUrl;
-
+  
       // If a new image is selected, upload it and delete the old one
       if (imageFile) {
-        // Upload new image
         const imageRef = ref(storage, `storeImages/${imageFile.name}`);
         await uploadBytes(imageRef, imageFile);
         newImageUrl = await getDownloadURL(imageRef);
-
+  
         // Delete old image
         if (store.imageUrl) {
           await deleteOldImage(store.imageUrl);
         }
       }
-
+  
       const storeRef = doc(db, 'stores', store.id);
       const updateData = {
         name: formData.name,
@@ -187,9 +186,30 @@ const EditStoreModal = ({ store, isOpen, onClose, onStoreUpdate }: EditStoreModa
         imageUrl: newImageUrl,
         vendorIds: formData.vendorIds,
       };
-
+  
+      // Update the store document with the new data
       await updateDoc(storeRef, updateData);
+  
+      // For each selected vendor, check if they already have the store assigned
+      for (const vendorId of formData.vendorIds) {
+        const vendorRef = doc(db, 'users', vendorId);
+        const vendorDoc = await getDoc(vendorRef);
+  
+        if (vendorDoc.exists()) {
+          const vendorData = vendorDoc.data();
+          
+          // Ensure vendorData.stores is defined and is an array
+          const vendorStores = vendorData.stores || [];
 
+          // Check if the store ID is already in the vendor's `stores` array
+          if (!vendorStores.includes(store.id)) {
+            await updateDoc(vendorRef, {
+              stores: [...vendorStores, store.id],
+            });
+          }
+        }
+      }
+  
       const updatedStore: StoreData = {
         ...store,
         ...updateData,
@@ -204,6 +224,7 @@ const EditStoreModal = ({ store, isOpen, onClose, onStoreUpdate }: EditStoreModa
       setIsLoading(false);
     }
   };
+  
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

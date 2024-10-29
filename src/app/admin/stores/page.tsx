@@ -128,7 +128,11 @@ export default function StoreGallery() {
                 </CardDescription>
               </CardHeader>
               <CardFooter className="flex justify-between mt-auto">
-                <Button variant="outline" className="flex items-center">
+                <Button
+                  variant="outline"
+                  className="flex items-center"
+                  onClick={() => router.push(`/admin/stores/${store.id}`)}
+                >
                   <Eye className="mr-2 h-4 w-4" /> View Details
                 </Button>
                 <Button
