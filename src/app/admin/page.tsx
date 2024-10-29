@@ -66,7 +66,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [events, setEvents] = useState<Event[]>([]); // Now properly typed
+  const [events, setEvents] = useState<Event[]>([]);  
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");

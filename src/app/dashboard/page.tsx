@@ -76,7 +76,7 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (!user?.uid || !role) return;
   
-    if (role === "vendor") {
+    if (role !== "vendor") {
       router.push("/unauthorized");
       return;
     }

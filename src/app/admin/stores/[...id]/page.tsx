@@ -79,6 +79,7 @@ export default function StoreDetailsPage({
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductData | null>(
     null
   );
@@ -460,6 +461,8 @@ export default function StoreDetailsPage({
           onProductUpdate={handleProductUpdate}
         />
       )}
+
+      
     </div>
   );
 }
