@@ -1,5 +1,4 @@
-"use client";
-
+'use client'
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -45,7 +44,6 @@ interface Product {
   id: string;
   name: string;
   category: string;
-  price: number;
   cost: number;
   inStock: number;
   imageUrl: string;
@@ -122,11 +120,11 @@ export default function VendorDashboard() {
   }, [user, role, router]);
 
   const metrics: VendorMetrics = useMemo(() => {
-    const totalRevenue = products.reduce((sum, product) => sum + (product.price * product.inStock), 0);
+    const totalRevenue = products.reduce((sum, product) => sum + (product.cost * product.inStock), 0);
     const totalCost = products.reduce((sum, product) => sum + (product.cost * product.inStock), 0);
 
     return {
-      totalRevenue: totalRevenue,
+      totalRevenue,
       totalProducts: products.length,
       averageMargin: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue * 100) : 0,
       lowStockItems: products.filter(p => p.inStock < 10).length
@@ -149,12 +147,10 @@ export default function VendorDashboard() {
         );
       }
 
-      if (selectedFilter !== "all") {
-        if (type === "products") {
-          filtered = filtered.filter(
-            (product) => product.category === selectedFilter
-          );
-        }
+      if (selectedFilter !== "all" && type === "products") {
+        filtered = filtered.filter(
+          (product) => product.category === selectedFilter
+        );
       }
 
       return filtered;
@@ -264,7 +260,7 @@ export default function VendorDashboard() {
                             <TableCell>
                               {formatCurrency(
                                 store.products?.reduce(
-                                  (sum: number, product: Product) => sum + (product.price || 0) * (product.inStock || 0),
+                                  (sum: number, product: Product) => sum + (product.cost || 0) * (product.inStock || 0),
                                   0
                                 ) || 0
                               )}
@@ -282,69 +278,54 @@ export default function VendorDashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Product Management</CardTitle>
-                  <div className="flex justify-end">
-                    <Select onValueChange={setSelectedFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Filter by Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="category1">Category 1</SelectItem>
-                        <SelectItem value="category2">Category 2</SelectItem>
-                        {/* Add more categories as needed */}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select
+                    value={selectedFilter}
+                    onValueChange={setSelectedFilter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {/* Add more categories as needed */}
+                      <SelectItem value="category1">Category 1</SelectItem>
+                      <SelectItem value="category2">Category 2</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </CardHeader>
                 <CardContent>
-                  <Input
-                    placeholder="Search products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+                  <div className="space-y-4">
+                    <Input
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
 
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Store</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Cost</TableHead>
-                        <TableHead>In Stock</TableHead>
-                        <TableHead>Margin</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-  {filterData(products, "products").map((product) => {
-    const productPrice = product.price || 0;  // Default to 0 if undefined
-    const productCost = product.cost || 0;    // Default to 0 if undefined
-    const inStock = product.inStock >= 0 ? product.inStock : 0; // Ensure inStock is non-negative
-
-    // Calculate margin percentage safely
-    const margin = productPrice > 0 && productCost >= 0 
-      ? (((productPrice - productCost) / productPrice) * 100).toFixed(1) 
-      : 0;
-
-    return (
-      <TableRow key={product.productId}>
-        <TableCell>{product.name}</TableCell>
-        <TableCell>{product.storeName}</TableCell>
-        <TableCell>{product.category}</TableCell>
-        <TableCell>{formatCurrency(productPrice)}</TableCell>
-        <TableCell>{formatCurrency(productCost)}</TableCell>
-        <TableCell>
-          <span className={`${inStock < 10 ? "text-red-500" : inStock < 50 ? "text-yellow-500" : "text-green-500"}`}>
-            {inStock}
-          </span>
-        </TableCell>
-        <TableCell>{margin}%</TableCell>
-      </TableRow>
-    );
-  })}
-</TableBody>
-
-                  </Table>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product Name</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Cost</TableHead>
+                          <TableHead>In Stock</TableHead>
+                          <TableHead>Total Revenue</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filterData(products, "products").map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category}</TableCell>
+                            <TableCell>{formatCurrency(product.cost)}</TableCell>
+                            <TableCell>{product.inStock}</TableCell>
+                            <TableCell>
+                              {formatCurrency(product.cost * product.inStock)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

@@ -218,6 +218,7 @@ export default function AddProductModal({
             productId: productRef.id,
             name: productData.name,
             price: productData.price,
+            cost:productData.cost,
             imageUrl: productData.imageUrl,
             category: productData.category,
             inStock: productData.inStock
