@@ -1,12 +1,12 @@
-"use client"
+"use client" // Indicates a client-side component. ST10062618
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { format, parseISO, isPast } from "date-fns"
-import { collection, getDocs, query, orderBy } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { Loader2, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react" // React hooks for state and effects. ST10062618
+import Link from "next/link" // Navigation component from Next.js. ST10062618
+import { format, parseISO, isPast } from "date-fns" // Utility functions for date handling. ST10062618
+import { collection, getDocs, query, orderBy } from "firebase/firestore" // Firestore utilities. ST10062618
+import { db } from "@/lib/firebase" // Firebase configuration. ST10062618
+import { Loader2, Plus } from "lucide-react" // Icons for UI elements. ST10062618
+import { Button } from "@/components/ui/button" // Reusable Button component. ST10062618
 import {
   Table,
   TableBody,
@@ -14,13 +14,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table" // Reusable Table components. ST10062618
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/tooltip" // Tooltip components for additional info. ST10062618
 
 interface Event {
   id: string
@@ -39,9 +39,9 @@ interface Event {
 }
 
 export default function EventTable() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [events, setEvents] = useState<Event[]>([]) // Holds event data. ST10062618
+  const [isLoading, setIsLoading] = useState(true) // Indicates loading state. ST10062618
+  const [error, setError] = useState<string | null>(null) // Holds error messages. ST10062618
 
   useEffect(() => {
     async function fetchEvents() {
@@ -52,7 +52,7 @@ export default function EventTable() {
         const eventsRef = collection(db, "events")
         const q = query(eventsRef, orderBy("date", "desc"))
         const querySnapshot = await getDocs(q)
-        
+
         const fetchedEvents = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -177,12 +177,8 @@ export default function EventTable() {
                     </TooltipProvider>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      Edit
-                    </Button>
+                    <Button variant="ghost" size="sm">View</Button>
+                    <Button variant="ghost" size="sm">Edit</Button>
                   </TableCell>
                 </TableRow>
               ))}
