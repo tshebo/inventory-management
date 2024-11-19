@@ -80,7 +80,15 @@ export default function UserTable() {
       const querySnapshot = await getDocs(collection(db, "users"));
       const fetchedUsers: User[] = [];
       querySnapshot.forEach((doc) => {
-        fetchedUsers.push({ id: doc.id, ...doc.data() } as User);
+        const data = doc.data();
+        fetchedUsers.push({
+          id: doc.id,
+          email: data.email, // Ensure to include email
+          name: data.name, // Ensure to include name
+          role: data.role, // Ensure to include role
+          createdAt: data.createdAt.toDate(), // Convert Firestore Timestamp to JS Date
+          createdBy: data.createdBy, // Ensure to include createdBy
+        });
       });
       setUsers(fetchedUsers);
       setTotalPages(Math.ceil(fetchedUsers.length / usersPerPage));
@@ -212,7 +220,9 @@ export default function UserTable() {
                 </div>
               </TableCell>
               <TableCell>
-                {new Date(user.createdAt).toLocaleDateString()}
+                {user.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString("en-ZA")
+                  : "N/A"}
               </TableCell>
               <TableCell className="text-right">
                 <DropdownMenu>

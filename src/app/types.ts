@@ -12,12 +12,16 @@ interface Store {
 }
 
 interface Product {
+  id: string;
   name: string;
-  category: string;
+  description: string;
   price: number;
-  cost: number;
   inStock: number;
-  storeId: string; // Reference to store doc
+  storeId: string;
+  storeName?: string;
+  category: string;
+  cost: number;
+  imageUrl: string;
 }
 
 interface TimeSlot {

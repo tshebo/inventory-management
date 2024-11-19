@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React, { useState, useEffect, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  collection,
+  query,
+  onSnapshot,
+  where,
+  orderBy,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,46 +22,249 @@ import {
   Store,
   BarChart2,
   Settings,
-  Menu,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/auth";
 import Spinner from "@/components/Spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Type definitions for better type safety
+interface Schedule {
+  startTime: string;
+  endTime: string;
+}
+
+interface Event {
+  id: string;
+  name: string;
+  date: Date | string;
+  location: string;
+  status: string;
+  schedule?: Schedule;
+}
+
+// Function to format date
+const formatDate = (date: any) => {
+  return new Date(date).toLocaleDateString();
+};
 
 export default function AdminDashboard() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const pathname = usePathname();
+  // State with proper typing
+  const [users, setUsers] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);  
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const router = useRouter();
   const { role, loading } = useAuth();
 
-  if (loading) {
+  // Firebase data fetching with error handling
+  useEffect(() => {
+    if (!role) return;
+
+    // if (role !== "admin") {
+    //   router.push("/unauthorized");
+    //   return;
+    // }
+
+    const unsubscribers: (() => void)[] = []; 
+
+    const setupSubscription = (
+      collectionName: string,
+      setter: React.Dispatch<React.SetStateAction<any[]>>,
+      orderByField: string = "createdAt"
+    ) => {
+      try {
+        const collectionQuery = query(
+          collection(db, collectionName),
+          orderBy(orderByField, "desc")
+        );
+
+        const unsubscribe = onSnapshot(
+          collectionQuery,
+          (snapshot) => {
+            const data = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt:
+                doc.data().createdAt?.toDate?.() || doc.data().createdAt,
+              date: doc.data().date?.toDate?.() || doc.data().date,
+            }));
+            setter(data);
+          },
+          (error) => {
+            console.error(`Error in ${collectionName} subscription:`, error);
+            setError(error.message);
+          }
+        );
+
+        unsubscribers.push(unsubscribe);
+      } catch (err) {
+        console.error(`Error setting up ${collectionName} subscription:`, err);
+        setError((err as Error).message); // Type assertion to Error
+      }
+    };
+
+    // Setup all subscriptions
+    setupSubscription("users", setUsers);
+    setupSubscription("stores", setStores);
+    setupSubscription("products", setProducts);
+    setupSubscription("events", setEvents, "date");
+
+    setIsLoading(false);
+
+    return () => {
+      unsubscribers.forEach((unsub) => unsub?.());
+    };
+  }, [role, router]);
+
+  // Memoized filter function
+  const filterData = useMemo(
+    () => (data: any[], type: string) => {
+      // Specify types for parameters
+
+      if (!data) return [];
+
+      let filtered = data;
+
+      // Apply search term
+      if (searchTerm) {
+        filtered = filtered.filter((item) =>
+          Object.entries(item).some(
+            ([key, value]) =>
+              ["name", "email", "description"].includes(key) &&
+              value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        );
+      }
+
+      // Apply specific filters
+      if (selectedFilter !== "all") {
+        switch (type) {
+          case "users":
+            filtered = filtered.filter((user) => user.role === selectedFilter);
+            break;
+          case "events":
+            filtered = filtered.filter(
+              (event) => event.status === selectedFilter
+            );
+            break;
+          case "products":
+            filtered = filtered.filter(
+              (product) => product.category === selectedFilter
+            );
+            break;
+        }
+      }
+
+      return filtered;
+    },
+    [searchTerm, selectedFilter]
+  );
+
+  // Memoized analytics calculations
+  const analytics = useMemo(
+    () => ({
+      users: {
+        total: users.length,
+        growth: users.length
+          ? (
+              (users.filter((u) => {
+                const date =
+                  u.createdAt instanceof Date
+                    ? u.createdAt
+                    : new Date(u.createdAt);
+                return date > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+              }).length /
+                users.length) *
+              100
+            ).toFixed(1)
+          : 0,
+      },
+      stores: {
+        total: stores.length,
+        activeVendors: stores.filter(
+          (s) => Array.isArray(s.vendorIds) && s.vendorIds.length > 0
+        ).length,
+      },
+      events: {
+        upcoming: events.filter((e) => new Date(e.date) > new Date()).length,
+        active: events.filter((e) => e.status === "active").length,
+      },
+      products: {
+        total: products.length,
+        inStock: products.filter((p) => (p.inStock || 0) > 0).length,
+        lowStock: products.filter((p) => (p.inStock || 0) > 0 && p.inStock < 10)
+          .length,
+      },
+    }),
+    [users, stores, events, products]
+  );
+
+  const formatSchedule = (event: Event) => {
+    if (!event.schedule) return "No schedule";
+    return `${event.schedule.startTime || "TBD"} - ${
+      event.schedule.endTime || "TBD"
+    }`;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+    }).format(amount);
+  };
+
+  // Memoized categories
+  const categories = useMemo(
+    () => Array.from(new Set(products.map((product) => product.category))),
+    [products]
+  );
+
+  if (error) {
     return (
-      <div>
-        <Spinner />
+      <div className="flex h-screen items-center justify-center">
+        <Card className="p-6">
+          <CardTitle className="text-red-500">Error</CardTitle>
+          <CardContent>{error}</CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (role !== "admin") {
-    router.push("/unauthorized");
+  if (loading || isLoading) {
+    return <Spinner />;
   }
 
-  const navItems = [
-    { name: "Dashboard", href: "/admin", icon: BarChart2 },
-    { name: "Users", href: "/admin/users", icon: Users },
-    { name: "Vendors", href: "/admin/vendors", icon: Store },
-    { name: "Events", href: "/admin/events", icon: Calendar },
-    { name: "Products", href: "/admin/products", icon: ShoppingBag },
-    { name: "Settings", href: "/admin/settings", icon: Settings },
-  ];
+  if (role !== "admin") {
+    router.push("/unauthorized");
+    return null;
+  }
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Page Content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Analytics Cards */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -64,26 +274,37 @@ export default function AdminDashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">1,234</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.users.total}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    +20.1% from last month
+                    +{analytics.users.growth}% from last month
                   </p>
                 </CardContent>
               </Card>
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Active Vendors
+                    Active Stores
                   </CardTitle>
                   <Store className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">567</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.stores.activeVendors}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    +15.5% from last month
+                    {(
+                      (analytics.stores.activeVendors /
+                        analytics.stores.total) *
+                      100
+                    ).toFixed(1)}
+                    % of total stores
                   </p>
                 </CardContent>
               </Card>
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -92,10 +313,15 @@ export default function AdminDashboard() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">12</div>
-                  <p className="text-xs text-muted-foreground">Next 30 days</p>
+                  <div className="text-2xl font-bold">
+                    {analytics.events.upcoming}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {analytics.events.active} currently active
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -104,22 +330,27 @@ export default function AdminDashboard() {
                   <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">3,456</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.products.total}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    +8.2% from last month
+                    {analytics.products.inStock} in stock
                   </p>
                 </CardContent>
               </Card>
             </div>
 
+            {/* Main Content Tabs */}
             <div className="mt-8">
               <Tabs defaultValue="users" className="w-full">
                 <TabsList>
                   <TabsTrigger value="users">Users</TabsTrigger>
-                  <TabsTrigger value="vendors">Vendors</TabsTrigger>
+                  <TabsTrigger value="vendors">Stores</TabsTrigger>
                   <TabsTrigger value="events">Events</TabsTrigger>
                   <TabsTrigger value="products">Products</TabsTrigger>
                 </TabsList>
+
+                {/* Users Tab */}
                 <TabsContent value="users">
                   <Card>
                     <CardHeader>
@@ -128,52 +359,114 @@ export default function AdminDashboard() {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex items-center space-x-4">
-                          <Label htmlFor="search-users">Search Users:</Label>
-                          <Input
-                            id="search-users"
-                            placeholder="Enter name or email"
-                          />
-                          <Button>Search</Button>
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Search by name or email"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                              className="w-full"
+                            />
+                          </div>
+                          <div className="w-48">
+                            <Select
+                              value={selectedFilter}
+                              onValueChange={setSelectedFilter}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Filter by role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Roles</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="vendor">Vendor</SelectItem>
+                                <SelectItem value="customer">
+                                  Customer
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="border rounded-lg p-4">
-                          <h3 className="font-semibold mb-2">User List</h3>
-                          {/* Add user list table or grid here */}
-                          <p className="text-muted-foreground">
-                            User list will be displayed here.
-                          </p>
-                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Role</TableHead>
+                              <TableHead>Credits</TableHead>
+                              <TableHead>Created At</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filterData(users, "users").map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>{user.name}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell>{user.role}</TableCell>
+                                <TableCell>{user.credits}</TableCell>
+                                <TableCell>
+                                  {new Date(
+                                    user.createdAt
+                                  ).toLocaleDateString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
+
+                {/* Vendors Tab */}
                 <TabsContent value="vendors">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Vendor Management</CardTitle>
+                      <CardTitle>Store Management</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex items-center space-x-4">
-                          <Label htmlFor="search-vendors">
-                            Search Vendors:
-                          </Label>
                           <Input
-                            id="search-vendors"
-                            placeholder="Enter vendor name"
+                            placeholder="Search stores"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full"
                           />
-                          <Button>Search</Button>
                         </div>
-                        <div className="border rounded-lg p-4">
-                          <h3 className="font-semibold mb-2">Vendor List</h3>
-                          {/* Add vendor list table or grid here */}
-                          <p className="text-muted-foreground">
-                            Vendor list will be displayed here.
-                          </p>
-                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead>Vendors</TableHead>
+                              <TableHead>Created At</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filterData(stores, "stores").map((store) => (
+                              <TableRow key={store.id}>
+                                <TableCell>{store.name}</TableCell>
+                                <TableCell>{store.description}</TableCell>
+                                <TableCell>
+                                  {store.vendorIds?.length || 0}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(
+                                    store.createdAt
+                                  ).toLocaleDateString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
+
+                {/* Events Tab */}
                 <TabsContent value="events">
                   <Card>
                     <CardHeader>
@@ -182,24 +475,63 @@ export default function AdminDashboard() {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex items-center space-x-4">
-                          <Label htmlFor="search-events">Search Events:</Label>
-                          <Input
-                            id="search-events"
-                            placeholder="Enter event name or date"
-                          />
-                          <Button>Search</Button>
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Search events"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                          </div>
+                          <div className="w-48">
+                            <Select
+                              value={selectedFilter}
+                              onValueChange={setSelectedFilter}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Filter by status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="completed">
+                                  Completed
+                                </SelectItem>
+                                <SelectItem value="cancelled">
+                                  Cancelled
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="border rounded-lg p-4">
-                          <h3 className="font-semibold mb-2">Event List</h3>
-                          {/* Add event list table or grid here */}
-                          <p className="text-muted-foreground">
-                            Event list will be displayed here.
-                          </p>
-                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Location</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Schedule</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filterData(events, "events").map((event) => (
+                              <TableRow key={event.id}>
+                                <TableCell>{event.name}</TableCell>
+                                <TableCell>{formatDate(event.date)}</TableCell>
+                                <TableCell>{event.location}</TableCell>
+                                <TableCell>{event.status}</TableCell>
+                                <TableCell>{formatSchedule(event)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
+
+                {/* Products Tab */}
                 <TabsContent value="products">
                   <Card>
                     <CardHeader>
@@ -208,22 +540,79 @@ export default function AdminDashboard() {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex items-center space-x-4">
-                          <Label htmlFor="search-products">
-                            Search Products:
-                          </Label>
-                          <Input
-                            id="search-products"
-                            placeholder="Enter product name"
-                          />
-                          <Button>Search</Button>
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Search products"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                          </div>
+                          <div className="w-48">
+                            <Select
+                              value={selectedFilter}
+                              onValueChange={setSelectedFilter}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Filter by category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">
+                                  All Categories
+                                </SelectItem>
+                                {categories.map((category) => (
+                                  <SelectItem key={category} value={category}>
+                                    {category}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="border rounded-lg p-4">
-                          <h3 className="font-semibold mb-2">Product List</h3>
-                          {/* Add product list table or grid here */}
-                          <p className="text-muted-foreground">
-                            Product list will be displayed here.
-                          </p>
-                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Price</TableHead>
+                              <TableHead>Cost</TableHead>
+                              <TableHead>Stock</TableHead>
+                              <TableHead>Created At</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filterData(products, "products").map((product) => (
+                              <TableRow key={product.id}>
+                                <TableCell>{product.name || "N/A"}</TableCell>
+                                <TableCell>
+                                  {product.category || "N/A"}
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrency(product.price)}
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrency(product.cost)}
+                                </TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`${
+                                      (product.inStock || 0) < 10
+                                        ? "text-red-500"
+                                        : (product.inStock || 0) < 50
+                                        ? "text-yellow-500"
+                                        : "text-green-500"
+                                    }`}
+                                  >
+                                    {product.inStock || 0}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  {formatDate(product.createdAt)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     </CardContent>
                   </Card>

@@ -15,7 +15,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { collection, getDocs, addDoc, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  where,
+  arrayUnion,
+  doc,
+  writeBatch,
+} from "firebase/firestore";
 import { db, auth, storage } from "@/lib/firebase"; // Adjust this import path as needed
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 interface Vendor {
@@ -35,8 +44,25 @@ interface ValidationErrors {
   image: string;
   vendors: string;
 }
+const updateVendorsWithStore = async (storeId: string, vendorIds: string[]) => {
+  const batch = writeBatch(db);
 
-async function fetchVendors() {
+  // Update each vendor's document with the new store ID in the vendors collection
+  vendorIds.forEach((vendorId) => {
+    const vendorRef = doc(db, "vendors", vendorId);
+    batch.update(vendorRef, {
+      stores: arrayUnion(storeId), // Using 'stores' as the array field name
+    });
+  });
+  try {
+    await batch.commit();
+    console.log("Successfully updated vendors with store ID:", storeId);
+  } catch (error) {
+    console.error("Error updating vendors:", error);
+    throw new Error("Failed to update vendors with store reference");
+  }
+};
+export async function fetchVendors() {
   console.log("Fetching vendors...");
   const vendorsQuery = query(
     collection(db, "users"),
@@ -64,13 +90,12 @@ async function fetchVendors() {
     });
 
     console.log("Processed vendors:", vendors);
-    return vendors;
+    return vendors; // Ensure this returns an array of Vendor objects
   } catch (error) {
     console.error("Error fetching vendors:", error);
-    return [];
+    return []; // Return an empty array on error
   }
 }
-
 export default function StoreForm() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -233,27 +258,31 @@ export default function StoreForm() {
       if (!imageFile) {
         throw new Error("Image file is required");
       }
-      // Create a reference to the storage location
+
+      // Upload image
       const imageRef = ref(storage, `storeImages/${imageFile.name}`);
-
-      // Upload the image file to Firebase Storage
       await uploadBytes(imageRef, imageFile);
-
-      // Get the download URL for the uploaded image
       const imageUrl = await getDownloadURL(imageRef);
 
+      // Create store document
       const storeData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        vendorIds: formData.vendors, // Array of selected vendor IDs
+        vendorIds: formData.vendors,
         createdBy: currentUser.uid,
         createdAt: new Date().toISOString(),
-        imageUrl, // Include the image URL in the store data
+        imageUrl,
       };
 
-      await addDoc(collection(db, "stores"), storeData);
+      // Add store document and get its ID
+      const storeDoc = await addDoc(collection(db, "stores"), storeData);
+
+      // Update vendors with the new store ID
+      await updateVendorsWithStore(storeDoc.id, formData.vendors);
+
       setSuccess(true);
-      toast.success(`Store Created`);
+      toast.success("Store Created and Vendors Updated");
+
       // Reset form
       setFormData({
         name: "",
@@ -264,7 +293,7 @@ export default function StoreForm() {
       setImagePreview(null);
     } catch (err: any) {
       setError(err.message || "An error occurred while creating the store");
-      toast.error(`Error ${err.message}`);
+      toast.error(`Error: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -375,7 +404,10 @@ export default function StoreForm() {
 
       {success && (
         <Alert variant="default" className="mt-4">
-          <AlertTitle ><Check className="bg-green-600 mr-4 "/>Success</AlertTitle>
+          <AlertTitle>
+            <Check className="bg-green-600 mr-4 " />
+            Success
+          </AlertTitle>
           <AlertDescription>Store created successfully!</AlertDescription>
         </Alert>
       )}

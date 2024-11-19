@@ -1,26 +1,34 @@
-'use client'
-import Link from 'next/link'
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAuth } from '@/hooks/auth'
-import { useRouter } from 'next/navigation';
+"use client";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuth } from "@/hooks/auth";
+import { useRouter } from "next/navigation";
 export default function Home() {
-
   const { user, role, loading } = useAuth();
   const router = useRouter();
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-100 to-white flex flex-col justify-center items-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center">Welcome to Our App</CardTitle>
+          <CardTitle className="text-3xl font-bold text-center">
+            Welcome to Buyuk Chamlija
+          </CardTitle>
           <CardDescription className="text-center">
             Get started by logging in or creating a new account
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-center text-muted-foreground">
-            Join our community of users and enjoy all the features our app has to offer.
+            Join Our Community at Buyuk Chamlija
           </p>
           <div className="flex flex-col space-y-2">
             <Button asChild>
@@ -33,11 +41,11 @@ export default function Home() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            By using our app, you agree to our{' '}
+            By using our app, you agree to our{" "}
             <Link href="/terms" className="text-primary hover:underline">
               Terms of Service
-            </Link>{' '}
-            and{' '}
+            </Link>{" "}
+            and{" "}
             <Link href="/privacy" className="text-primary hover:underline">
               Privacy Policy
             </Link>
@@ -45,5 +53,5 @@ export default function Home() {
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }

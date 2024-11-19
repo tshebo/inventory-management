@@ -1,20 +1,32 @@
 import { useEffect, useState } from "react";
+import { User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import Cookies from 'js-cookie';
 
-export function useAuth() {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
+interface AuthUser extends User {
+  uid: string;
+}
+
+interface UseAuthReturn {
+  user: AuthUser | null;
+  role: string | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+}
+
+export function useAuth(): UseAuthReturn {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
         try {
           // Fetch user role from Firestore
-          const userRef = doc(db, "users", user.uid);
+          const userRef = doc(db, "users", firebaseUser.uid);
           const userDoc = await getDoc(userRef);
           
           if (userDoc.exists()) {
@@ -29,7 +41,7 @@ export function useAuth() {
             setRole(null);
           }
           
-          setUser(user);
+          setUser(firebaseUser as AuthUser);
         } catch (error) {
           console.error("Error fetching user role:", error);
           setRole(null);
@@ -53,7 +65,6 @@ export function useAuth() {
   const signOut = async () => {
     try {
       await auth.signOut();
-      // Cookies will be removed by the auth state change listener
     } catch (error) {
       console.error("Error signing out:", error);
     }

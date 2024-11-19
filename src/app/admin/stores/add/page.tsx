@@ -36,4 +36,4 @@ function page() {
   );
 }
 
-export default page; // Export the page component. ST10062618
+export default page;
